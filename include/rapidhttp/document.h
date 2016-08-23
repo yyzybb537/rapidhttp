@@ -150,67 +150,67 @@ public:
     // @buf_ref: 外部传入的缓冲区首地址
     // @len: 缓冲区长度
     // @returns：解析完成返回error_code=0, 解析一半返回error_code=1, 解析失败返回其他错误码.
-    size_t PartailParse(const char* buf_ref, size_t len);
-    size_t PartailParse(std::string const& buf);
-    void ResetPartailParse();
+    inline size_t PartailParse(const char* buf_ref, size_t len);
+    inline size_t PartailParse(std::string const& buf);
+    inline void ResetPartailParse();
 
     // 返回解析错误码
-    std::error_code ParseError();
+    inline std::error_code ParseError();
 
     // 保存
 //    void Storage();
 
-    bool IsInitialized() const;
+    inline bool IsInitialized() const;
 
-    size_t ByteSize() const;
+    inline size_t ByteSize() const;
 
-    bool Serialize(char *buf, size_t len);
+    inline bool Serialize(char *buf, size_t len);
     /// --------------------------------------------------------
 
     /// ------------------- fields get/set ---------------------
-    std::string const& GetMethod();
-    void SetMethod(const char* m);
-    void SetMethod(std::string const& m);
+    inline std::string const& GetMethod();
+    inline void SetMethod(const char* m);
+    inline void SetMethod(std::string const& m);
 
-    std::string const& GetUri();
-    void SetUri(const char* m);
-    void SetUri(std::string const& m);
+    inline std::string const& GetUri();
+    inline void SetUri(const char* m);
+    inline void SetUri(std::string const& m);
 
-    std::string const& GetResponseString();
-    void SetResponseString(const char* m);
-    void SetResponseString(std::string const& m);
+    inline std::string const& GetResponseString();
+    inline void SetResponseString(const char* m);
+    inline void SetResponseString(std::string const& m);
 
-    int GetCode();
-    void SetCode(int code);
+    inline int GetCode();
+    inline void SetCode(int code);
 
-    int GetMajor();
-    void SetMajor(int v);
+    inline int GetMajor();
+    inline void SetMajor(int v);
 
-    int GetMinor();
-    void SetMinor(int v);
+    inline int GetMinor();
+    inline void SetMinor(int v);
 
-    std::string const& GetField(std::string const& k);
-    void SetField(std::string const& k, const char* m);
-    void SetField(std::string const& k, std::string const& m);
+    inline std::string const& GetField(std::string const& k);
+    inline void SetField(std::string const& k, const char* m);
+    inline void SetField(std::string const& k, std::string const& m);
     /// --------------------------------------------------------
 
     inline bool IsRequest() const { return type_ == Request; }
     inline bool IsResponse() const { return type_ == Response; }
 
 private:
-    bool ParseMethod(const char* pos, const char* last);
-    bool ParseUri(const char* pos, const char* last);
-    bool ParseVersion(const char* pos, const char* last);
-    bool ParseCode(const char* pos, const char* last);
-    bool ParseResponseStr(const char* pos, const char* last);
-    bool ParseField(const char* pos, const char* last, std::string & key,
+    inline bool ParseMethod(const char* pos, const char* last);
+    inline bool ParseUri(const char* pos, const char* last);
+    inline bool ParseVersion(const char* pos, const char* last);
+    inline bool ParseCode(const char* pos, const char* last);
+    inline bool ParseResponseStr(const char* pos, const char* last);
+    inline bool ParseField(const char* pos, const char* last, std::string & key,
             std::string & value);
 
-    bool CheckMethod() const;
-    bool CheckUri() const;
-    bool CheckCode() const;
-    bool CheckResponseString() const;
-    bool CheckVersion() const;
+    inline bool CheckMethod() const;
+    inline bool CheckUri() const;
+    inline bool CheckCode() const;
+    inline bool CheckResponseString() const;
+    inline bool CheckVersion() const;
 
 private:
 //    bool update_flags_ = false;   // 是否有内容变更

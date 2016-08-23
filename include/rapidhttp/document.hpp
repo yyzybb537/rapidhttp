@@ -13,22 +13,24 @@ namespace rapidhttp {
     // @buf_ref: 外部传入的缓冲区首地址, 再调用Storage前必须保证缓冲区有效且不变.
     // @len: 缓冲区长度
     // @returns：解析完成返回error_code=0, 解析一半返回error_code=1, 解析失败返回其他错误码.
-    size_t HttpDocument::PartailParse(std::string const& buf)
+    inline size_t HttpDocument::PartailParse(std::string const& buf)
     {
         return PartailParse(buf.c_str(), buf.size());
     }
-    size_t HttpDocument::PartailParse(const char* buf_ref, size_t len)
+    inline size_t HttpDocument::PartailParse(const char* buf_ref, size_t len)
     {
         size_t remain_length = 0;
         if (ec_.value() == (int)eErrorCode::parse_error ||
                 parse_state_ == eParseState::done) {
             ResetPartailParse();
-        } else if (ec_.value() == (int)eErrorCode::parse_progress &&
-                !parse_buffer_.empty()) {
-            remain_length = parse_buffer_.length();
-            parse_buffer_.append(buf_ref, len);
-            buf_ref = parse_buffer_.c_str();
-            len = parse_buffer_.size();
+        } else if (ec_.value() == (int)eErrorCode::parse_progress) {
+            if (!parse_buffer_.empty()) {
+                remain_length = parse_buffer_.length();
+                parse_buffer_.append(buf_ref, len);
+                buf_ref = parse_buffer_.c_str();
+                len = parse_buffer_.size();
+            }
+            ec_.clear();
         }
 
         const char* pos = buf_ref;
@@ -178,7 +180,7 @@ namespace rapidhttp {
 #undef _CHECK_PROGRESS
         return 0;
     }
-    void HttpDocument::ResetPartailParse()
+    inline void HttpDocument::ResetPartailParse()
     {
         parse_state_ = eParseState::init;
         ec_ = std::error_code();
@@ -186,19 +188,19 @@ namespace rapidhttp {
         header_fields_.clear();
     }
 
-    bool HttpDocument::ParseMethod(const char* pos, const char* last)
+    inline bool HttpDocument::ParseMethod(const char* pos, const char* last)
     {
         request_method_.assign(pos, last);
         if (!CheckMethod()) return false;
         return true;
     }
-    bool HttpDocument::ParseUri(const char* pos, const char* last)
+    inline bool HttpDocument::ParseUri(const char* pos, const char* last)
     {
         request_uri_.assign(pos, last);
         if (!CheckUri()) return false;
         return true;
     }
-    bool HttpDocument::ParseVersion(const char* pos, const char* last)
+    inline bool HttpDocument::ParseVersion(const char* pos, const char* last)
     {
         static const char* sc_http = "HTTP";
         if (*(int*)pos != *(int*)sc_http) return false;
@@ -210,7 +212,7 @@ namespace rapidhttp {
         if (!CheckVersion()) return false;
         return true;
     }
-    bool HttpDocument::ParseCode(const char* pos, const char* last)
+    inline bool HttpDocument::ParseCode(const char* pos, const char* last)
     {
         if (last - pos != 3) return false;
         if (*pos < '1' || *pos > '9') return false;
@@ -221,13 +223,13 @@ namespace rapidhttp {
         response_code_ += (*pos++ - '0');
         return true;
     }
-    bool HttpDocument::ParseResponseStr(const char* pos, const char* last)
+    inline bool HttpDocument::ParseResponseStr(const char* pos, const char* last)
     {
         response_str_.assign(pos, last);
         if (!CheckResponseString()) return false;
         return true;
     }
-    bool HttpDocument::ParseField(const char* pos, const char* last,
+    inline bool HttpDocument::ParseField(const char* pos, const char* last,
             std::string & key, std::string & value)
     {
         const char* split = pos;
@@ -246,7 +248,7 @@ namespace rapidhttp {
     }
 
     // 返回解析错误码
-    std::error_code HttpDocument::ParseError()
+    inline std::error_code HttpDocument::ParseError()
     {
         return ec_;
     }
@@ -275,7 +277,7 @@ namespace rapidhttp {
 //            update_flags_ = false;
 //        }
 //    }
-    bool HttpDocument::IsInitialized() const
+    inline bool HttpDocument::IsInitialized() const
     {
         if (IsRequest())
             return CheckMethod() && CheckUri() && CheckVersion();
@@ -283,7 +285,7 @@ namespace rapidhttp {
             return CheckVersion() && CheckCode() && CheckResponseString();
     }
 
-    size_t HttpDocument::ByteSize() const
+    inline size_t HttpDocument::ByteSize() const
     {
         if (!IsInitialized()) return 0;
 
@@ -304,7 +306,7 @@ namespace rapidhttp {
         return bytes;
     }
 
-    bool HttpDocument::Serialize(char *buf, size_t len)
+    inline bool HttpDocument::Serialize(char *buf, size_t len)
     {
         size_t bytes = ByteSize();
         if (!bytes || len < bytes) return false;
@@ -334,7 +336,7 @@ namespace rapidhttp {
             *buf++ = '.';
             *buf++ = minor_ + '0';
         } else {
-            _WRITE_C_STR(" HTTP/", 6);
+            _WRITE_C_STR("HTTP/", 6);
             *buf++ = major_ + '0';
             *buf++ = '.';
             *buf++ = minor_ + '0';
@@ -361,39 +363,39 @@ namespace rapidhttp {
 #undef _WRITE_C_STR
 #undef _WRITE_STRING
     }
-    bool HttpDocument::CheckMethod() const
+    inline bool HttpDocument::CheckMethod() const
     {
         return !request_method_.empty();
     }
-    bool HttpDocument::CheckUri() const
+    inline bool HttpDocument::CheckUri() const
     {
         return !request_uri_.empty() && request_uri_[0] == '/';
     }
-    bool HttpDocument::CheckCode() const
+    inline bool HttpDocument::CheckCode() const
     {
         return response_code_ >= 100 && response_code_ < 1000;
     }
-    bool HttpDocument::CheckResponseString() const
+    inline bool HttpDocument::CheckResponseString() const
     {
         return !response_str_.empty();
     }
-    bool HttpDocument::CheckVersion() const
+    inline bool HttpDocument::CheckVersion() const
     {
         return major_ >= 0 && major_ <= 9 && minor_ >= 0 && minor_ <= 9;
     }
     /// --------------------------------------------------------
 
     /// ------------------- fields get/set ---------------------
-    std::string const& HttpDocument::GetMethod()
+    inline std::string const& HttpDocument::GetMethod()
     {
         return request_method_;
     }
     
-    void HttpDocument::SetMethod(const char* m)
+    inline void HttpDocument::SetMethod(const char* m)
     {
         request_method_ = m;
     }
-    void HttpDocument::SetMethod(std::string const& m)
+    inline void HttpDocument::SetMethod(std::string const& m)
     {
         request_method_ = m;
     }
