@@ -5,8 +5,8 @@ project(RapidHttpTest)
 
 if (CMAKE_BUILD_TYPE)
 else()
-    set(CMAKE_BUILD_TYPE DEBUG)
-    #set(CMAKE_BUILD_TYPE RELEASE)
+    #set(CMAKE_BUILD_TYPE DEBUG)
+    set(CMAKE_BUILD_TYPE RELEASE)
 endif()
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -g -Wall")

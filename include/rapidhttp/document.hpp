@@ -23,7 +23,8 @@ namespace rapidhttp {
         if (ec_.value() == (int)eErrorCode::parse_error ||
                 parse_state_ == eParseState::done) {
             ResetPartailParse();
-        } else if (ec_.value() == (int)eErrorCode::parse_progress) {
+        } else if (ec_.value() == (int)eErrorCode::parse_progress &&
+                !parse_buffer_.empty()) {
             remain_length = parse_buffer_.length();
             parse_buffer_.append(buf_ref, len);
             buf_ref = parse_buffer_.c_str();
@@ -53,9 +54,14 @@ namespace rapidhttp {
                 case eParseState::init:
                     {
                         pos = SkipSpaces(pos, last);
-                        parse_state_ = (IsRequest()) ? eParseState::method : eParseState::version;
+                        if (IsRequest())
+                            parse_state_ = eParseState::method;
+                        else {
+                            parse_state_ = eParseState::version;
+                            break;
+                        }
                     }
-                    break;
+//                    break;
 
                 case eParseState::method:
                     {
@@ -102,8 +108,13 @@ namespace rapidhttp {
                         }
                         pos = (IsRequest()) ? next + 2 : next + 1;
                         parse_state_ = (IsRequest()) ? eParseState::fields : eParseState::code;
+                        if (IsRequest()) {
+                            parse_state_ = eParseState::fields;
+                            break;
+                        } else
+                            parse_state_ = eParseState::code;
                     }
-                    break;
+//                    break;
 
                 case eParseState::code:
                     {
@@ -177,28 +188,18 @@ namespace rapidhttp {
 
     bool HttpDocument::ParseMethod(const char* pos, const char* last)
     {
-        parse_buffer_.append(pos, last);
-        request_method_.swap(parse_buffer_);
+        request_method_.assign(pos, last);
         if (!CheckMethod()) return false;
-        parse_buffer_.clear();
         return true;
     }
     bool HttpDocument::ParseUri(const char* pos, const char* last)
     {
-        parse_buffer_.append(pos, last);
-        request_uri_.swap(parse_buffer_);
+        request_uri_.assign(pos, last);
         if (!CheckUri()) return false;
-        parse_buffer_.clear();
         return true;
     }
     bool HttpDocument::ParseVersion(const char* pos, const char* last)
     {
-        if (!parse_buffer_.empty()) {
-            parse_buffer_.append(pos, last);
-            pos = &parse_buffer_[0];
-            last = pos + parse_buffer_.length();
-        }
-
         static const char* sc_http = "HTTP";
         if (*(int*)pos != *(int*)sc_http) return false;
         pos += 4;
@@ -207,17 +208,10 @@ namespace rapidhttp {
         if (*pos++ != '.') return false;
         minor_ = *pos++ - '0';
         if (!CheckVersion()) return false;
-        parse_buffer_.clear();
         return true;
     }
     bool HttpDocument::ParseCode(const char* pos, const char* last)
     {
-        if (!parse_buffer_.empty()) {
-            parse_buffer_.append(pos, last);
-            pos = &parse_buffer_[0];
-            last = pos + parse_buffer_.length();
-        }
-
         if (last - pos != 3) return false;
         if (*pos < '1' || *pos > '9') return false;
         response_code_ = (*pos++ - '0') * 100;
@@ -225,26 +219,17 @@ namespace rapidhttp {
         response_code_ += (*pos++ - '0') * 10;
         if (*pos < '0' || *pos > '9') return false;
         response_code_ += (*pos++ - '0');
-        parse_buffer_.clear();
         return true;
     }
     bool HttpDocument::ParseResponseStr(const char* pos, const char* last)
     {
-        parse_buffer_.append(pos, last);
-        response_str_.swap(parse_buffer_);
+        response_str_.assign(pos, last);
         if (!CheckResponseString()) return false;
-        parse_buffer_.clear();
         return true;
     }
     bool HttpDocument::ParseField(const char* pos, const char* last,
             std::string & key, std::string & value)
     {
-        if (!parse_buffer_.empty()) {
-            parse_buffer_.append(pos, last);
-            pos = &parse_buffer_[0];
-            last = pos + parse_buffer_.length();
-        }
-
         const char* split = pos;
         for (; split < last; ++split) {
             if (*split == ':')
@@ -339,6 +324,7 @@ namespace rapidhttp {
         *buf++ = '\r';\
         *buf++ = '\n'
 
+        char *ori = buf;
         if (IsRequest()) {
             _WRITE_STRING(request_method_);
             *buf++ = ' ';
@@ -368,6 +354,8 @@ namespace rapidhttp {
             _WRITE_CRLF();
         }
         _WRITE_CRLF();
+        size_t length = buf - ori;
+        (void)length;
         return true;
 #undef _WRITE_CRLF
 #undef _WRITE_C_STR

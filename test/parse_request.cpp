@@ -103,7 +103,6 @@ TEST(parse, request)
     EXPECT_EQ(bytes, 2);
     EXPECT_TRUE(!doc.ParseError());
 
-//#if 0
     for (size_t pos = 0; pos < c_http_request.size(); ++pos)
     {
 //        cout << "parse split by " << pos << endl;
@@ -115,5 +114,11 @@ TEST(parse, request)
         EXPECT_EQ(bytes, c_http_request.size() - pos);
         EXPECT_TRUE(!doc.ParseError());
     }
-//#endif
+
+    char buf[256] = {};
+    bool b = doc.Serialize(buf, sizeof(buf));
+    EXPECT_TRUE(b);
+    bytes = doc.ByteSize();
+    EXPECT_EQ(bytes, c_http_request.size());
+//    EXPECT_EQ(c_http_request, buf);
 }
