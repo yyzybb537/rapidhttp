@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string.h>
+#include <assert.h>
 
 namespace rapidhttp {
 
@@ -12,11 +13,11 @@ public:
         : pos_(0), len_(0), str_("")
     {}
 
-    StringRef(const char* str, size_t pos, size_t len)
+    StringRef(const char* str, uint32_t pos, uint32_t len)
         : pos_(pos), len_(len), str_(str)
     {}
     
-    StringRef(const char* str, size_t len)
+    StringRef(const char* str, uint32_t len)
         : pos_(0), len_(len), str_(str)
     {}
 
@@ -24,9 +25,10 @@ public:
         : pos_(0), len_(s.size()), str_(s.c_str())
     {}
 
-    void OnCopy(const char* str)
+    void OnCopy(const char* origin, const char* dest)
     {
-        str_ = str;
+        if (str_ == origin)
+            str_ = dest;
     }
 
     const char* c_str() const
@@ -49,6 +51,16 @@ public:
         str_ = s.c_str();
         pos_ = 0;
         len_ = s.size();
+    }
+
+    void Storage(std::string & s)
+    {
+        if (!pos_ && s.c_str() == this->c_str() &&
+                s.length() == this->size())
+            return ;
+
+        s.assign(this->c_str(), this->size());
+        SetString(s);
     }
 
     /// ------------- string equal-compare operator ---------------
@@ -106,8 +118,8 @@ public:
     /// -----------------------------------------------------
 
 private:
-    size_t pos_;
-    size_t len_;
+    uint32_t pos_;
+    uint32_t len_;
     const char* str_;
 };
 

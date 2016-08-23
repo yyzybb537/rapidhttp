@@ -1,6 +1,7 @@
 #pragma once
 
 #include <system_error>
+#include <string>
 
 namespace rapidhttp {
 
@@ -14,12 +15,12 @@ enum class eErrorCode
 class ErrorCategory : public std::error_category
 {
 public:
-    virtual const char* name() const override noexcept
+    virtual const char* name() const noexcept override 
     {
         return "RapidHttp Error";
     }
 
-    virtual string message(int code) const override
+    virtual std::string message(int code) const override
     {
         switch (code) {
             case (int)eErrorCode::success:
