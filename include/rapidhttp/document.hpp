@@ -1,6 +1,7 @@
 #pragma once
 #include "document.h"
 #include <rapidhttp/util.h>
+#include <algorithm>
 
 namespace rapidhttp {
 //    HttpDocument::HttpDocument(HttpDocument const& other);
@@ -160,14 +161,12 @@ namespace rapidhttp {
                             return next + 2 - buf_ref - remain_length;
                         }
 
-                        std::string key, value;
-                        if (!ParseField(pos, next, key, value)) {
+                        if (!ParseField(pos, next)) {
                             ec_ = MakeErrorCode(eErrorCode::parse_error);
                             return 0;
                         }
 
                         pos = next + 2;
-                        header_fields_[key].swap(value);
                     }
                     break;
 
@@ -229,8 +228,7 @@ namespace rapidhttp {
         if (!CheckResponseString()) return false;
         return true;
     }
-    inline bool HttpDocument::ParseField(const char* pos, const char* last,
-            std::string & key, std::string & value)
+    inline bool HttpDocument::ParseField(const char* pos, const char* last)
     {
         const char* split = pos;
         for (; split < last; ++split) {
@@ -238,12 +236,15 @@ namespace rapidhttp {
                 break;
         }
         if (split == last) return false;
-        key.assign(pos, split);
+        const char* key_end = split;
+//        key.assign(pos, split);
         // TODO: Check Field Key
         ++split;
         if (*split++ != ' ') return false; // Must be split by ":\s"
-        value.assign(split, last);
+//        value.assign(split, last);
         // TODO: Check Field Value
+
+        header_fields_.emplace_back(std::string(pos, key_end), std::string(split, last));
         return true;
     }
 
@@ -450,7 +451,11 @@ namespace rapidhttp {
     inline std::string const& HttpDocument::GetField(std::string const& k)
     {
         static const std::string empty_string = "";
-        auto it = header_fields_.find(k);
+        auto it = std::find_if(header_fields_.begin(), header_fields_.end(),
+                [&](std::pair<std::string, std::string> const& kv)
+                {
+                    return kv.first == k;
+                });
         if (header_fields_.end() == it)
             return empty_string;
         else
@@ -458,11 +463,19 @@ namespace rapidhttp {
     }
     inline void HttpDocument::SetField(std::string const& k, const char* m)
     {
-        header_fields_[k] = m;
+        auto it = std::find_if(header_fields_.begin(), header_fields_.end(),
+                [&](std::pair<std::string, std::string> const& kv)
+                {
+                    return kv.first == k;
+                });
+        if (header_fields_.end() == it)
+            header_fields_.emplace_back(k, m);
+        else
+            it->second = m;
     }
     inline void HttpDocument::SetField(std::string const& k, std::string const& m)
     {
-        header_fields_[k] = m;
+        return SetField(k, m.c_str());
     }
     /// --------------------------------------------------------
 

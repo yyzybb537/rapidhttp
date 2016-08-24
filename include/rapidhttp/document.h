@@ -2,6 +2,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 #include <stdint.h>
 #include <rapidhttp/constants.h>
 #include <rapidhttp/stringref.h>
@@ -203,8 +204,7 @@ private:
     inline bool ParseVersion(const char* pos, const char* last);
     inline bool ParseCode(const char* pos, const char* last);
     inline bool ParseResponseStr(const char* pos, const char* last);
-    inline bool ParseField(const char* pos, const char* last, std::string & key,
-            std::string & value);
+    inline bool ParseField(const char* pos, const char* last);
 
     inline bool CheckMethod() const;
     inline bool CheckUri() const;
@@ -234,8 +234,9 @@ private:
     uint32_t response_code_ = 404;
     std::string response_str_;
 
-    std::map<std::string, std::string> header_fields_;
+    std::vector<std::pair<std::string, std::string>> header_fields_;
 
+//    std::map<std::string, std::string> header_fields_;
 //    std::vector<Field> special_fields_;
 };
 
