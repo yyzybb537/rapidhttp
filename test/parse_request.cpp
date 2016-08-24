@@ -44,7 +44,7 @@ static std::string c_http_request_err_3 =
 
 TEST(parse, request)
 {
-    rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
+    rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Request);
     size_t bytes = doc.PartailParse(c_http_request);
     EXPECT_EQ(bytes, c_http_request.size());
     EXPECT_TRUE(!doc.ParseError());
@@ -106,13 +106,24 @@ TEST(parse, request)
     for (size_t pos = 0; pos < c_http_request.size(); ++pos)
     {
 //        cout << "parse split by " << pos << endl;
-        size_t bytes = doc.PartailParse(c_http_request.c_str(), pos);
+        std::string fp = c_http_request.substr(0, pos);
+        std::string sp = c_http_request.substr(pos);
+        size_t bytes = doc.PartailParse(fp);
         EXPECT_EQ(bytes, pos);
         EXPECT_EQ(doc.ParseError().value(), 1);
 
-        bytes = doc.PartailParse(c_http_request.c_str() + pos, c_http_request.size() - pos);
+        bytes = doc.PartailParse(sp);
         EXPECT_EQ(bytes, c_http_request.size() - pos);
         EXPECT_TRUE(!doc.ParseError());
+
+        EXPECT_EQ(doc.GetMethod(), "GET");
+        EXPECT_EQ(doc.GetUri(), "/uri/abc");
+        EXPECT_EQ(doc.GetMajor(), 1);
+        EXPECT_EQ(doc.GetMinor(), 1);
+        EXPECT_EQ(doc.GetField("Accept"), "XAccept");
+        EXPECT_EQ(doc.GetField("Host"), "domain.com");
+        EXPECT_EQ(doc.GetField("Connection"), "Keep-Alive");
+        EXPECT_EQ(doc.GetField("User-Agent"), "");
     }
 
     char buf[256] = {};

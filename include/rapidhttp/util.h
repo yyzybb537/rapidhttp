@@ -51,7 +51,6 @@ inline const char* FindCRLF(const char* pos, const char* last, std::error_code &
     for (; pos < last - 1; ++pos) {
         if (*pos == '\r') {
             if (*(pos + 1) == '\n') {
-                ec = std::error_code();
                 return pos;
             } else {
                 ec = MakeErrorCode(eErrorCode::parse_error);
@@ -63,7 +62,6 @@ inline const char* FindCRLF(const char* pos, const char* last, std::error_code &
         }
     }
 
-    ec = std::error_code();
     return nullptr;
 }
 

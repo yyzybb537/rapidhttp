@@ -86,7 +86,7 @@ namespace rapidhttp {
 
 // Http document class.
 // Copy-on-write.
-class HttpDocument
+class HttpHeaderDocument
 {
 public:
     enum DocumentType
@@ -140,11 +140,11 @@ public:
         done,
     };
 
-    explicit HttpDocument(DocumentType type) : type_(type) {}
-//    HttpDocument(HttpDocument const& other);
-//    HttpDocument(HttpDocument && other);
-//    HttpDocument& operator=(HttpDocument const& other);
-//    HttpDocument& operator=(HttpDocument && other);
+    explicit HttpHeaderDocument(DocumentType type) : type_(type) {}
+//    HttpHeaderDocument(HttpHeaderDocument const& other);
+//    HttpHeaderDocument(HttpHeaderDocument && other);
+//    HttpHeaderDocument& operator=(HttpHeaderDocument const& other);
+//    HttpHeaderDocument& operator=(HttpHeaderDocument && other);
 
     /// ------------------- parse/generate ---------------------
     /// 流式解析
@@ -204,7 +204,7 @@ private:
     inline bool ParseVersion(const char* pos, const char* last);
     inline bool ParseCode(const char* pos, const char* last);
     inline bool ParseResponseStr(const char* pos, const char* last);
-    inline bool ParseField(const char* pos, const char* last);
+    inline const char* ParseField(const char* pos, const char* last);
 
     inline bool CheckMethod() const;
     inline bool CheckUri() const;
@@ -213,11 +213,6 @@ private:
     inline bool CheckVersion() const;
 
 private:
-//    bool update_flags_ = false;   // 是否有内容变更
-//    const char* origin_str_ = "";
-//    size_t origin_length_ = 0;
-//    std::string storage_;
-
     DocumentType type_;     // 类型
 
     // 默认版本号: HTTP/1.1
@@ -235,9 +230,6 @@ private:
     std::string response_str_;
 
     std::vector<std::pair<std::string, std::string>> header_fields_;
-
-//    std::map<std::string, std::string> header_fields_;
-//    std::vector<Field> special_fields_;
 };
 
 } //namespace rapidhttp 
