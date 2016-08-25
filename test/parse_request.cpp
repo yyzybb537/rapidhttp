@@ -137,5 +137,15 @@ TEST(parse, request)
     EXPECT_TRUE(b);
     bytes = doc.ByteSize();
     EXPECT_EQ(bytes, c_http_request.size());
-//    EXPECT_EQ(c_http_request, buf);
+    EXPECT_EQ(c_http_request, buf);
+
+    bytes = doc.PartailParse(c_http_request_2);
+    EXPECT_EQ(bytes, c_http_request_2.size());
+    EXPECT_TRUE(doc.ParseDone());
+    b = doc.Serialize(buf, sizeof(buf));
+    EXPECT_TRUE(b);
+    bytes = doc.ByteSize();
+    EXPECT_EQ(bytes, c_http_request_2.size());
+    EXPECT_EQ(c_http_request_2, buf);
 }
+

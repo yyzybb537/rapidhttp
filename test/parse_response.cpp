@@ -10,8 +10,8 @@ static std::string c_http_response =
 "Accept: XAccept\r\n"
 "Host: domain.com\r\n"
 "Connection: Keep-Alive\r\n"
-"Content-Length: 0\r\n"
-"\r\n";
+"Content-Length: 3\r\n"
+"\r\nxyz";
 
 static std::string c_http_response_2 = 
 "HTTP/1.1 404 Not Found\r\n"
@@ -143,5 +143,5 @@ TEST(parse, response)
     EXPECT_TRUE(b);
     bytes = doc.ByteSize();
     EXPECT_EQ(bytes, c_http_response.size());
-//    EXPECT_EQ(c_http_response, buf);
+    EXPECT_EQ(c_http_response, buf);
 }

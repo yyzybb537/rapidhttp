@@ -186,6 +186,7 @@ namespace rapidhttp {
             bytes += kv.first.size() + 2 + kv.second.size() + 2;
         }
         bytes += 2;
+        bytes += body_.size();
         return bytes;
     }
 
@@ -219,7 +220,7 @@ namespace rapidhttp {
             *buf++ = '.';
             *buf++ = minor_ + '0';
         } else {
-            _WRITE_C_STR("HTTP/", 6);
+            _WRITE_C_STR("HTTP/", 5);
             *buf++ = major_ + '0';
             *buf++ = '.';
             *buf++ = minor_ + '0';
@@ -239,6 +240,7 @@ namespace rapidhttp {
             _WRITE_CRLF();
         }
         _WRITE_CRLF();
+        _WRITE_STRING(body_);
         size_t length = buf - ori;
         (void)length;
         return true;
@@ -260,7 +262,7 @@ namespace rapidhttp {
     }
     inline bool HttpDocument::CheckStatus() const
     {
-        return true;
+        return !response_status_.empty();
     }
     inline bool HttpDocument::CheckVersion() const
     {
