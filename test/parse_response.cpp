@@ -52,8 +52,8 @@ TEST(parse, response)
     EXPECT_TRUE(!doc.ParseError());
     EXPECT_TRUE(doc.ParseDone());
 
-    EXPECT_EQ(doc.GetResponseString(), "OK");
-    EXPECT_EQ(doc.GetCode(), 200);
+    EXPECT_EQ(doc.GetStatus(), "OK");
+    EXPECT_EQ(doc.GetStatusCode(), 200);
     EXPECT_EQ(doc.GetMajor(), 1);
     EXPECT_EQ(doc.GetMinor(), 1);
     EXPECT_EQ(doc.GetField("Accept"), "XAccept");
@@ -68,8 +68,8 @@ TEST(parse, response)
         EXPECT_TRUE(doc.ParseDone());
     }
 
-    EXPECT_EQ(doc.GetResponseString(), "OK");
-    EXPECT_EQ(doc.GetCode(), 200);
+    EXPECT_EQ(doc.GetStatus(), "OK");
+    EXPECT_EQ(doc.GetStatusCode(), 200);
     EXPECT_EQ(doc.GetMajor(), 1);
     EXPECT_EQ(doc.GetMinor(), 1);
     EXPECT_EQ(doc.GetField("Accept"), "XAccept");
@@ -85,8 +85,8 @@ TEST(parse, response)
     EXPECT_TRUE(!doc.ParseError());
     EXPECT_TRUE(doc.ParseDone());
 
-    EXPECT_EQ(doc.GetResponseString(), "Not Found");
-    EXPECT_EQ(doc.GetCode(), 404);
+    EXPECT_EQ(doc.GetStatus(), "Not Found");
+    EXPECT_EQ(doc.GetStatusCode(), 404);
     EXPECT_EQ(doc.GetMajor(), 1);
     EXPECT_EQ(doc.GetMinor(), 1);
     EXPECT_EQ(doc.GetField("Accept"), "XAccept");
@@ -128,8 +128,8 @@ TEST(parse, response)
         EXPECT_TRUE(!doc.ParseError());
         EXPECT_TRUE(doc.ParseDone());
 
-        EXPECT_EQ(doc.GetResponseString(), "OK");
-        EXPECT_EQ(doc.GetCode(), 200);
+        EXPECT_EQ(doc.GetStatus(), "OK");
+        EXPECT_EQ(doc.GetStatusCode(), 200);
         EXPECT_EQ(doc.GetMajor(), 1);
         EXPECT_EQ(doc.GetMinor(), 1);
         EXPECT_EQ(doc.GetField("Accept"), "XAccept");

@@ -22,6 +22,10 @@ public:
     };
 
     explicit HttpDocument(DocumentType type);
+    HttpDocument(HttpDocument const& other) = delete;
+    HttpDocument(HttpDocument && other) = delete;
+    HttpDocument& operator=(HttpDocument const& other) = delete;
+    HttpDocument& operator=(HttpDocument && other) = delete;
 
     /// ------------------- parse/generate ---------------------
     /// 流式解析
@@ -56,12 +60,12 @@ public:
     inline void SetUri(const char* m);
     inline void SetUri(std::string const& m);
 
-    inline std::string const& GetResponseString();
-    inline void SetResponseString(const char* m);
-    inline void SetResponseString(std::string const& m);
+    inline std::string const& GetStatus();
+    inline void SetStatus(const char* m);
+    inline void SetStatus(std::string const& m);
 
-    inline int GetCode();
-    inline void SetCode(int code);
+    inline int GetStatusCode();
+    inline void SetStatusCode(int code);
 
     inline int GetMajor();
     inline void SetMajor(int v);
@@ -84,8 +88,8 @@ public:
 private:
     inline bool CheckMethod() const;
     inline bool CheckUri() const;
-    inline bool CheckCode() const;
-    inline bool CheckResponseString() const;
+    inline bool CheckStatusCode() const;
+    inline bool CheckStatus() const;
     inline bool CheckVersion() const;
 
     // http-parser

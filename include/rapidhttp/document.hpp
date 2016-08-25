@@ -165,7 +165,7 @@ namespace rapidhttp {
         if (IsRequest())
             return CheckMethod() && CheckUri() && CheckVersion();
         else
-            return CheckVersion() && CheckCode() && CheckResponseString();
+            return CheckVersion() && CheckStatusCode() && CheckStatus();
     }
 
     inline size_t HttpDocument::ByteSize() const
@@ -254,13 +254,13 @@ namespace rapidhttp {
     {
         return !request_uri_.empty() && request_uri_[0] == '/';
     }
-    inline bool HttpDocument::CheckCode() const
+    inline bool HttpDocument::CheckStatusCode() const
     {
         return response_status_code_ >= 100 && response_status_code_ < 1000;
     }
-    inline bool HttpDocument::CheckResponseString() const
+    inline bool HttpDocument::CheckStatus() const
     {
-        return !response_status_.empty();
+        return true;
     }
     inline bool HttpDocument::CheckVersion() const
     {
@@ -294,23 +294,23 @@ namespace rapidhttp {
     {
         request_uri_ = m;
     }
-    inline std::string const& HttpDocument::GetResponseString()
+    inline std::string const& HttpDocument::GetStatus()
     {
         return response_status_;
     }
-    inline void HttpDocument::SetResponseString(const char* m)
+    inline void HttpDocument::SetStatus(const char* m)
     {
         response_status_ = m;
     }
-    inline void HttpDocument::SetResponseString(std::string const& m)
+    inline void HttpDocument::SetStatus(std::string const& m)
     {
         response_status_ = m;
     }
-    inline int HttpDocument::GetCode()
+    inline int HttpDocument::GetStatusCode()
     {
         return response_status_code_;
     }
-    inline void HttpDocument::SetCode(int code)
+    inline void HttpDocument::SetStatusCode(int code)
     {
         response_status_code_ = code;
     }
