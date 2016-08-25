@@ -31,24 +31,34 @@ public:
     /// 流式解析
     // @buf_ref: 外部传入的缓冲区首地址
     // @len: 缓冲区长度
-    // @returns：解析完成返回error_code=0, 解析一半返回error_code=1, 解析失败返回其他错误码.
+    // @returns：返回已成功解析到的数据长度
     inline size_t PartailParse(const char* buf_ref, size_t len);
     inline size_t PartailParse(std::string const& buf);
+
+    /// 解析eof 
+    // 解析Response时, 断开链接时要调用这个接口, 因为有些response协议需要读取到
+    // 网络链接断开为止.
     inline bool PartailParseEof();
+
+    /// 是否解析成功
     inline bool ParseDone();
+
+    /// 重置解析流状态
+    // 同时清除解析流状态和已解析成功的数据状态
     inline void Reset();
 
-    // 返回解析错误码
+    /// 返回解析错误码
     inline std::error_code ParseError();
 
-    // 保存
-//    void Storage();
-
+    /// 是否全部初始化完成, Serialize之前会做这个校验
     inline bool IsInitialized() const;
 
+    /// Serialize后的数据长度
     inline size_t ByteSize() const;
 
+    /// 序列化
     inline bool Serialize(char *buf, size_t len);
+    inline std::string SerializeAsString();
     /// --------------------------------------------------------
 
     /// ------------------- fields get/set ---------------------

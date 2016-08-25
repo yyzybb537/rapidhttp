@@ -24,7 +24,10 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/test TEST_SRC_LIST)
 add_executable(unittest ${TEST_SRC_LIST})
-target_link_libraries(unittest -lgtest -lgtest_main -ltcmalloc_minimal -pthread)
+target_link_libraries(unittest -lgtest -lgtest_main -pthread)
+
+add_executable(tutorial_parse ${PROJECT_SOURCE_DIR}/tutorial/parse.cpp)
+add_executable(tutorial_serialize ${PROJECT_SOURCE_DIR}/tutorial/serialize.cpp)
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/benchmark BM_SRC_LIST)
 add_executable(benchmark ${BM_SRC_LIST})

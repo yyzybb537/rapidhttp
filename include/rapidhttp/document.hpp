@@ -248,6 +248,15 @@ namespace rapidhttp {
 #undef _WRITE_C_STR
 #undef _WRITE_STRING
     }
+    inline std::string HttpDocument::SerializeAsString()
+    {
+        std::string s;
+        size_t bytes = ByteSize();
+        if (!bytes) return "";
+        s.resize(bytes);
+        if (!Serialize(&s[0], bytes)) return "";
+        return s;
+    }
     inline bool HttpDocument::CheckMethod() const
     {
         return !request_method_.empty();
