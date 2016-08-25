@@ -2,6 +2,7 @@
 
 #include <system_error>
 #include <string>
+#include <rapidhttp/http_parser.hpp>
 
 namespace rapidhttp {
 
@@ -35,10 +36,30 @@ public:
     }
 };
 
+class ParseErrorCategory : public std::error_category
+{
+public:
+    virtual const char* name() const noexcept override 
+    {
+        return "RapidHttp Parse Error";
+    }
+
+    virtual std::string message(int code) const override
+    {
+        return http_errno_description((http_errno)code);
+    }
+};
+
 inline std::error_code MakeErrorCode(eErrorCode code)
 {
     static ErrorCategory category;
     return std::error_code((int)code, category);
+}
+
+inline std::error_code MakeParseErrorCode(int code)
+{
+    static ParseErrorCategory category;
+    return std::error_code(code, category);
 }
 
 } //namespace rapidhttp

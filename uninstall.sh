@@ -2,4 +2,4 @@
 
 set -e
 
-rm /usr/local/include/rapidhttp -rf
+sudo rm /usr/local/include/rapidhttp -rf

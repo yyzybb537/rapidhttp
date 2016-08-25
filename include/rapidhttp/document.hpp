@@ -2,298 +2,165 @@
 #include "document.h"
 #include <rapidhttp/util.h>
 #include <algorithm>
+#include <stdio.h>
 
 namespace rapidhttp {
-//    HttpHeaderDocument::HttpHeaderDocument(HttpHeaderDocument const& other);
-//    HttpHeaderDocument::HttpHeaderDocument(HttpHeaderDocument && other);
-//    HttpHeaderDocument& HttpHeaderDocument::operator=(HttpHeaderDocument const& other);
-//    HttpHeaderDocument& HttpHeaderDocument::operator=(HttpHeaderDocument && other);
+    inline HttpDocument::HttpDocument(DocumentType type)
+        : type_(type)
+    {
+        Reset();
+        memset(&settings_, 0, sizeof(settings_));
+        settings_.on_headers_complete = sOnHeadersComplete;
+        settings_.on_message_complete = sOnMessageComplete;
+        settings_.on_url = sOnUrl;
+        settings_.on_status = sOnStatus;
+        settings_.on_header_field = sOnHeaderField;
+        settings_.on_header_value = sOnHeaderValue;
+        settings_.on_body = sOnBody;
+    }
 
     /// ------------------- parse/generate ---------------------
     /// 流式解析
     // @buf_ref: 外部传入的缓冲区首地址, 再调用Storage前必须保证缓冲区有效且不变.
     // @len: 缓冲区长度
     // @returns：解析完成返回error_code=0, 解析一半返回error_code=1, 解析失败返回其他错误码.
-    inline size_t HttpHeaderDocument::PartailParse(std::string const& buf)
+    inline size_t HttpDocument::PartailParse(std::string const& buf)
     {
         return PartailParse(buf.c_str(), buf.size());
     }
-    inline size_t HttpHeaderDocument::PartailParse(const char* buf_ref, size_t len)
+    inline size_t HttpDocument::PartailParse(const char* buf_ref, size_t len)
     {
-        size_t remain_length = 0;
-        if (ec_.value() == (int)eErrorCode::parse_error ||
-                parse_state_ == eParseState::done) {
-            ResetPartailParse();
-        } else if (ec_.value() == (int)eErrorCode::parse_progress) {
-            if (!parse_buffer_.empty()) {
-                remain_length = parse_buffer_.length();
-                parse_buffer_.append(buf_ref, len);
-                buf_ref = parse_buffer_.c_str();
-                len = parse_buffer_.size();
-            }
-            ec_.clear();
+        if (ParseDone() || ParseError())
+            Reset();
+
+        size_t parsed = http_parser_execute(&parser_, &settings_, buf_ref, len);
+        if (parser_.http_errno) {
+            // TODO: support pause
+            ec_ = MakeParseErrorCode(parser_.http_errno);
         }
+        return parsed;
+    }
+    inline bool HttpDocument::PartailParseEof()
+    {
+        if (ParseDone() || ParseError())
+            return false;
 
-        const char* pos = buf_ref;
-        const char* last = buf_ref + len;
+        PartailParse("", 0);
+        return ParseDone();
+    }
+    inline bool HttpDocument::ParseDone()
+    {
+        return parse_done_;
+    }
 
-#define _CHECK_PROGRESS(next) \
-        do { \
-            if (!next) { \
-                parse_buffer_.assign(pos, last); \
-                ec_ = MakeErrorCode(eErrorCode::parse_progress); \
-                return len; \
-            } \
-        } while (0)
+    inline int HttpDocument::sOnHeadersComplete(http_parser *parser)
+    {
+        return ((HttpDocument*)parser->data)->OnHeadersComplete(parser);
+    }
+    inline int HttpDocument::sOnMessageComplete(http_parser *parser)
+    {
+        return ((HttpDocument*)parser->data)->OnMessageComplete(parser);
+    }
+    inline int HttpDocument::sOnUrl(http_parser *parser, const char *at, size_t length)
+    {
+        return ((HttpDocument*)parser->data)->OnUrl(parser, at, length);
+    }
+    inline int HttpDocument::sOnStatus(http_parser *parser, const char *at, size_t length)
+    {
+        return ((HttpDocument*)parser->data)->OnStatus(parser, at, length);
+    }
+    inline int HttpDocument::sOnHeaderField(http_parser *parser, const char *at, size_t length)
+    {
+        return ((HttpDocument*)parser->data)->OnHeaderField(parser, at, length);
+    }
+    inline int HttpDocument::sOnHeaderValue(http_parser *parser, const char *at, size_t length)
+    {
+        return ((HttpDocument*)parser->data)->OnHeaderValue(parser, at, length);
+    }
+    inline int HttpDocument::sOnBody(http_parser *parser, const char *at, size_t length)
+    {
+        return ((HttpDocument*)parser->data)->OnBody(parser, at, length);
+    }
 
-#define _CHECK_ERRORCODE() \
-        do { \
-            if (ec_) return 0; \
-        } while (0)
-
-        // status line.
-        for (;;) {
-            if (pos == last) {
-                ec_ = MakeErrorCode(eErrorCode::parse_progress);
-                return last - buf_ref - remain_length;
-            }
-
-            switch (parse_state_) {
-                case eParseState::init:
-                    {
-                        pos = SkipSpaces(pos, last);
-                        if (IsRequest())
-                            parse_state_ = eParseState::method;
-                        else {
-                            parse_state_ = eParseState::version;
-                            break;
-                        }
-                    }
-//                    break;
-
-                case eParseState::method:
-                    {
-                        const char* space = FindSpaces(pos, last);
-                        _CHECK_PROGRESS(space);
-
-                        if (!ParseMethod(pos, space)) {
-                            ec_ = MakeErrorCode(eErrorCode::parse_error);
-                            return 0;
-                        }
-                        pos = space + 1;
-                        parse_state_ = eParseState::uri;
-                    }
-//                    break;
-
-                case eParseState::uri:
-                    {
-                        const char* space = FindSpaces(pos, last);
-                        _CHECK_PROGRESS(space);
-
-                        if (!ParseUri(pos, space)) {
-                            ec_ = MakeErrorCode(eErrorCode::parse_error);
-                            return 0;
-                        }
-                        pos = space + 1;
-                        parse_state_ = eParseState::version;
-                    }
-//                    break;
-
-                case eParseState::version:
-                    {
-                        const char* next = nullptr;
-                        if (IsRequest())
-                            next = FindCRLF(pos, last, ec_);
-                        else
-                            next = FindSpaces(pos, last);
-
-                        _CHECK_ERRORCODE();
-                        _CHECK_PROGRESS(next);
-
-                        if (!ParseVersion(pos, next)) {
-                            ec_ = MakeErrorCode(eErrorCode::parse_error);
-                            return 0;
-                        }
-                        pos = (IsRequest()) ? next + 2 : next + 1;
-                        parse_state_ = (IsRequest()) ? eParseState::fields : eParseState::code;
-                        if (IsRequest()) {
-                            parse_state_ = eParseState::fields;
-                            break;
-                        } else
-                            parse_state_ = eParseState::code;
-                    }
-//                    break;
-
-                case eParseState::code:
-                    {
-                        const char* space = FindSpaces(pos, last);
-                        _CHECK_PROGRESS(space);
-
-                        if (!ParseCode(pos, space)) {
-                            ec_ = MakeErrorCode(eErrorCode::parse_error);
-                            return 0;
-                        }
-                        pos = space + 1;
-                        parse_state_ = eParseState::response_str;
-                    }
-//                    break;
-
-                case eParseState::response_str:
-                    {
-                        const char* next = FindCRLF(pos, last, ec_);
-                        _CHECK_ERRORCODE();
-                        _CHECK_PROGRESS(next);
-
-                        if (!ParseResponseStr(pos, next)) {
-                            ec_ = MakeErrorCode(eErrorCode::parse_error);
-                            return 0;
-                        }
-                        pos = next + 2;
-                        parse_state_ = eParseState::fields;
-                    }
-//                    break;
-
-                case eParseState::fields:
-                    for (;;) {
-                        if (*pos == '\r') {
-                            if (pos >= last - 1) {
-                                _CHECK_PROGRESS(nullptr);
-                            }
-
-                            if (*(pos + 1) == '\n') {
-                                parse_state_ = eParseState::done;
-                                parse_buffer_.clear();
-                                pos += 2;
-                                return pos - buf_ref - remain_length;
-                            } else {
-                                ec_ = MakeErrorCode(eErrorCode::parse_error);
-                                return 0;
-                            }
-                        }
-
-                        const char* next = ParseField(pos, last);
-                        _CHECK_ERRORCODE();
-                        _CHECK_PROGRESS(next);
-
-                        pos = next;
-                    }
-                    break;
-
-                case eParseState::done:
-                default:
-                    break;
-            }
+    inline int HttpDocument::OnHeadersComplete(http_parser *parser)
+    {
+        if (IsRequest())
+            request_method_ = http_method_str((http_method)parser->method);
+        else
+            response_status_code_ = parser->status_code;
+        major_ = parser->http_major;
+        minor_ = parser->http_minor;
+        if (kv_state_ == 1) {
+            header_fields_.emplace_back(std::move(callback_header_key_cache_),
+                    std::move(callback_header_value_cache_));
+            kv_state_ = 0;
         }
-#undef _CHECK_ERRORCODE
-#undef _CHECK_PROGRESS
         return 0;
     }
-    inline void HttpHeaderDocument::ResetPartailParse()
+    inline int HttpDocument::OnMessageComplete(http_parser *parser)
     {
-        parse_state_ = eParseState::init;
+        parse_done_ = true;
+        return 0;
+    }
+    inline int HttpDocument::OnUrl(http_parser *parser, const char *at, size_t length)
+    {
+        request_uri_.append(at, length);
+        return 0;
+    }
+    inline int HttpDocument::OnStatus(http_parser *parser, const char *at, size_t length)
+    {
+        response_status_.append(at, length);
+        return 0;
+    }
+    inline int HttpDocument::OnHeaderField(http_parser *parser, const char *at, size_t length)
+    {
+        if (kv_state_ == 1) {
+            header_fields_.emplace_back(std::move(callback_header_key_cache_),
+                    std::move(callback_header_value_cache_));
+            kv_state_ = 0;
+        }
+
+        callback_header_key_cache_.append(at, length);
+        return 0;
+    }
+    inline int HttpDocument::OnHeaderValue(http_parser *parser, const char *at, size_t length)
+    {
+        kv_state_ = 1;
+        callback_header_value_cache_.append(at, length);
+        return 0;
+    }
+    inline int HttpDocument::OnBody(http_parser *parser, const char *at, size_t length)
+    {
+        body_.append(at, length);
+        return 0;
+    }
+
+    inline void HttpDocument::Reset()
+    {
+        http_parser_init(&parser_, IsRequest() ? HTTP_REQUEST : HTTP_RESPONSE);
+        parser_.data = this;
+        parse_done_ = false;
         ec_ = std::error_code();
-        parse_buffer_.clear();
+        kv_state_ = 0;
+        callback_header_key_cache_.clear();
+        callback_header_value_cache_.clear();
+        major_ = 1;
+        minor_ = 1;
+        request_method_.clear();
+        request_uri_.clear();
+        response_status_code_ = 0;
+        response_status_.clear();
         header_fields_.clear();
-    }
-
-    inline bool HttpHeaderDocument::ParseMethod(const char* pos, const char* last)
-    {
-        request_method_.assign(pos, last);
-        if (!CheckMethod()) return false;
-        return true;
-    }
-    inline bool HttpHeaderDocument::ParseUri(const char* pos, const char* last)
-    {
-        request_uri_.assign(pos, last);
-        if (!CheckUri()) return false;
-        return true;
-    }
-    inline bool HttpHeaderDocument::ParseVersion(const char* pos, const char* last)
-    {
-        static const char* sc_http = "HTTP";
-        if (*(int*)pos != *(int*)sc_http) return false;
-        pos += 4;
-        if (*pos++ != '/') return false;
-        major_ = *pos++ - '0';
-        if (*pos++ != '.') return false;
-        minor_ = *pos++ - '0';
-        if (!CheckVersion()) return false;
-        return true;
-    }
-    inline bool HttpHeaderDocument::ParseCode(const char* pos, const char* last)
-    {
-        if (last - pos != 3) return false;
-        if (*pos < '1' || *pos > '9') return false;
-        response_code_ = (*pos++ - '0') * 100;
-        if (*pos < '0' || *pos > '9') return false;
-        response_code_ += (*pos++ - '0') * 10;
-        if (*pos < '0' || *pos > '9') return false;
-        response_code_ += (*pos++ - '0');
-        return true;
-    }
-    inline bool HttpHeaderDocument::ParseResponseStr(const char* pos, const char* last)
-    {
-        response_str_.assign(pos, last);
-        if (!CheckResponseString()) return false;
-        return true;
-    }
-    inline const char* HttpHeaderDocument::ParseField(const char* pos, const char* last)
-    {
-        const char* split = pos;
-        split = (const char*)memchr(pos, ':', last - pos);
-        if (!split || split >= last - 4) return nullptr;  // sizeof(": \r\n") == 4
-        const char* key_start = pos;
-        const char* key_end = split;
-        ++split;
-        if (*split++ != ' ') {
-            ec_ = MakeErrorCode(eErrorCode::parse_error);
-            return nullptr; // Must be split by ":\s"
-        }
-        const char* value_start = split;
-        split = (const char*)memchr(split, '\r', last - split);
-        if (!split || split >= last - 1) return nullptr;
-        const char* value_end = split;
-        ++split;
-        if (*split++ != '\n') {
-            ec_ = MakeErrorCode(eErrorCode::parse_error);
-            return nullptr; // Must end of \r\n
-        }
-
-        header_fields_.emplace_back(std::string(key_start, key_end), std::string(value_start, value_end));
-        return split;
+        body_.clear();
     }
 
     // 返回解析错误码
-    inline std::error_code HttpHeaderDocument::ParseError()
+    inline std::error_code HttpDocument::ParseError()
     {
         return ec_;
     }
 
-    // 保存
-//    void HttpHeaderDocument::Storage()
-//    {
-//        if (!update_flags_) {
-//            if (origin_str_ == storage_.c_str())
-//                return ;
-//
-//            storage_.assign(origin_str_, origin_length_);
-//            for (Field & f : special_fields_)
-//                f.Storage();
-//        } else {
-//            // save one by one.
-//            std::string buf(ByteSize());
-//            Write(&buf[0], buf.length());
-//            for (Field & f : common_fields_)
-//                f.Storage();
-//            for (Field & f : special_fields_)
-//                f.Storage();
-//            origin_str_ = buf.c_str();
-//            origin_length_ = buf.length();
-//            buf.swap(storage_);
-//            update_flags_ = false;
-//        }
-//    }
-    inline bool HttpHeaderDocument::IsInitialized() const
+    inline bool HttpDocument::IsInitialized() const
     {
         if (IsRequest())
             return CheckMethod() && CheckUri() && CheckVersion();
@@ -301,7 +168,7 @@ namespace rapidhttp {
             return CheckVersion() && CheckCode() && CheckResponseString();
     }
 
-    inline size_t HttpHeaderDocument::ByteSize() const
+    inline size_t HttpDocument::ByteSize() const
     {
         if (!IsInitialized()) return 0;
 
@@ -312,8 +179,8 @@ namespace rapidhttp {
             bytes += 10;    // HTTP/1.1CRLF
         } else {
             bytes += 9;     // HTTP/1.1\s
-            bytes += UIntegerByteSize(response_code_) + 1;  // 200\s
-            bytes += response_str_.size() + 2;  // okCRLF
+            bytes += UIntegerByteSize(response_status_code_) + 1;  // 200\s
+            bytes += response_status_.size() + 2;  // okCRLF
         }
         for (auto const& kv : header_fields_) {
             bytes += kv.first.size() + 2 + kv.second.size() + 2;
@@ -322,7 +189,7 @@ namespace rapidhttp {
         return bytes;
     }
 
-    inline bool HttpHeaderDocument::Serialize(char *buf, size_t len)
+    inline bool HttpDocument::Serialize(char *buf, size_t len)
     {
         size_t bytes = ByteSize();
         if (!bytes || len < bytes) return false;
@@ -357,11 +224,11 @@ namespace rapidhttp {
             *buf++ = '.';
             *buf++ = minor_ + '0';
             *buf++ = ' ';
-            *buf++ = (response_code_ / 100) + '0';
-            *buf++ = (response_code_ % 100) / 10 + '0';
-            *buf++ = (response_code_ % 10) + '0';
+            *buf++ = (response_status_code_ / 100) + '0';
+            *buf++ = (response_status_code_ % 100) / 10 + '0';
+            *buf++ = (response_status_code_ % 10) + '0';
             *buf++ = ' ';
-            _WRITE_STRING(response_str_);
+            _WRITE_STRING(response_status_);
         }
         _WRITE_CRLF();
         for (auto const& kv : header_fields_) {
@@ -379,91 +246,91 @@ namespace rapidhttp {
 #undef _WRITE_C_STR
 #undef _WRITE_STRING
     }
-    inline bool HttpHeaderDocument::CheckMethod() const
+    inline bool HttpDocument::CheckMethod() const
     {
         return !request_method_.empty();
     }
-    inline bool HttpHeaderDocument::CheckUri() const
+    inline bool HttpDocument::CheckUri() const
     {
         return !request_uri_.empty() && request_uri_[0] == '/';
     }
-    inline bool HttpHeaderDocument::CheckCode() const
+    inline bool HttpDocument::CheckCode() const
     {
-        return response_code_ >= 100 && response_code_ < 1000;
+        return response_status_code_ >= 100 && response_status_code_ < 1000;
     }
-    inline bool HttpHeaderDocument::CheckResponseString() const
+    inline bool HttpDocument::CheckResponseString() const
     {
-        return !response_str_.empty();
+        return !response_status_.empty();
     }
-    inline bool HttpHeaderDocument::CheckVersion() const
+    inline bool HttpDocument::CheckVersion() const
     {
         return major_ >= 0 && major_ <= 9 && minor_ >= 0 && minor_ <= 9;
     }
     /// --------------------------------------------------------
 
     /// ------------------- fields get/set ---------------------
-    inline std::string const& HttpHeaderDocument::GetMethod()
+    inline std::string const& HttpDocument::GetMethod()
     {
         return request_method_;
     }
     
-    inline void HttpHeaderDocument::SetMethod(const char* m)
+    inline void HttpDocument::SetMethod(const char* m)
     {
         request_method_ = m;
     }
-    inline void HttpHeaderDocument::SetMethod(std::string const& m)
+    inline void HttpDocument::SetMethod(std::string const& m)
     {
         request_method_ = m;
     }
-    inline std::string const& HttpHeaderDocument::GetUri()
+    inline std::string const& HttpDocument::GetUri()
     {
         return request_uri_;
     }
-    inline void HttpHeaderDocument::SetUri(const char* m)
+    inline void HttpDocument::SetUri(const char* m)
     {
         request_uri_ = m;
     }
-    inline void HttpHeaderDocument::SetUri(std::string const& m)
+    inline void HttpDocument::SetUri(std::string const& m)
     {
         request_uri_ = m;
     }
-    inline std::string const& HttpHeaderDocument::GetResponseString()
+    inline std::string const& HttpDocument::GetResponseString()
     {
-        return response_str_;
+        return response_status_;
     }
-    inline void HttpHeaderDocument::SetResponseString(const char* m)
+    inline void HttpDocument::SetResponseString(const char* m)
     {
-        response_str_ = m;
+        response_status_ = m;
     }
-    inline void HttpHeaderDocument::SetResponseString(std::string const& m)
+    inline void HttpDocument::SetResponseString(std::string const& m)
     {
-        response_str_ = m;
+        response_status_ = m;
     }
-    inline int HttpHeaderDocument::GetCode()
+    inline int HttpDocument::GetCode()
     {
-        return response_code_;
+        return response_status_code_;
     }
-    inline void HttpHeaderDocument::SetCode(int code)
+    inline void HttpDocument::SetCode(int code)
     {
-        response_code_ = code;
+        response_status_code_ = code;
     }
-    inline int HttpHeaderDocument::GetMajor()
+    inline int HttpDocument::GetMajor()
     {
         return major_;
     }
-    inline void HttpHeaderDocument::SetMajor(int v)
+    inline void HttpDocument::SetMajor(int v)
     {
         major_ = v;
     }
-    inline int HttpHeaderDocument::GetMinor()
+    inline int HttpDocument::GetMinor()
     {
         return minor_;
     }
-    inline void HttpHeaderDocument::SetMinor(int v)
+    inline void HttpDocument::SetMinor(int v)
     {
         minor_ = v;
     }
-    inline std::string const& HttpHeaderDocument::GetField(std::string const& k)
+    inline std::string const& HttpDocument::GetField(std::string const& k)
     {
         static const std::string empty_string = "";
         auto it = std::find_if(header_fields_.begin(), header_fields_.end(),
@@ -476,7 +343,7 @@ namespace rapidhttp {
         else
             return it->second;
     }
-    inline void HttpHeaderDocument::SetField(std::string const& k, const char* m)
+    inline void HttpDocument::SetField(std::string const& k, const char* m)
     {
         auto it = std::find_if(header_fields_.begin(), header_fields_.end(),
                 [&](std::pair<std::string, std::string> const& kv)
@@ -488,9 +355,21 @@ namespace rapidhttp {
         else
             it->second = m;
     }
-    inline void HttpHeaderDocument::SetField(std::string const& k, std::string const& m)
+    inline void HttpDocument::SetField(std::string const& k, std::string const& m)
     {
         return SetField(k, m.c_str());
+    }
+    inline std::string const& HttpDocument::GetBody()
+    {
+        return body_;
+    }
+    inline void HttpDocument::SetBody(const char* m)
+    {
+        body_ = m;
+    }
+    inline void HttpDocument::SetBody(std::string const& m)
+    {
+        body_ = m;
     }
     /// --------------------------------------------------------
 

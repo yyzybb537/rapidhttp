@@ -1,0 +1,13 @@
+= DocumentType: BOTH
+Header前面可以有多个CR/LF
+细化parse错误码
+版本号支持大于10, 小于1000的数字
+Response可以是：
+    HTTP/1.1 200\r\n
+    HTTP/1.1 200 \n
+    HTTP/1.1 200 OK\n
+    HTTP/1.1 200 OK \n
+Header结束符可以是：
+    \r\n
+    \n
+

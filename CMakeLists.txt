@@ -18,6 +18,8 @@ message("  CMAKE_CXX_FLAGS_FINAL: ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}}")
 message("  WITH_PROFILE: ${WITH_PROFILE}")
 message("----------------------------------")
 
+execute_process(COMMAND ${PROJECT_SOURCE_DIR}/extract_http_parser.sh "${PROJECT_SOURCE_DIR}")
+
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/test TEST_SRC_LIST)

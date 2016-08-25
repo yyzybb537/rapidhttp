@@ -31,8 +31,8 @@ static std::string c_http_response =
 "HTTP/1.1 200 OK\r\n"
 "Accept: XAccept\r\n"
 "Host: domain.com\r\n"
-"Connection: Keep-Alive\r\n"
-"\r\n";
+"Content-Length: 3\r\n"
+"\r\nabc";
 
 static std::string c_big_request =
 "POST /joyent/http-parser HTTP/1.1\r\n"
@@ -54,7 +54,7 @@ void BM_ParseRequest_0_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Request);
+            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
             size_t bytes = doc.PartailParse(c_http_request_0);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
@@ -67,7 +67,7 @@ void BM_ParseRequest_1_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Request);
+            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
             size_t bytes = doc.PartailParse(c_http_request_1);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
@@ -80,7 +80,7 @@ void BM_ParseRequest_2_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Request);
+            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
             size_t bytes = doc.PartailParse(c_http_request_2);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
@@ -93,7 +93,7 @@ void BM_ParseRequest_3_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Request);
+            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
             size_t bytes = doc.PartailParse(c_http_request.c_str(), c_http_request.size());
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
@@ -106,7 +106,7 @@ void BM_ParseRequest_big(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Request);
+            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
             size_t bytes = doc.PartailParse(c_big_request);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
@@ -119,7 +119,7 @@ void BM_ParseResponse(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Response);
+            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Response);
             size_t bytes = doc.PartailParse(c_http_response.c_str(), c_http_response.size());
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
@@ -128,15 +128,15 @@ void BM_ParseResponse(benchmark::State& state)
 }
 BENCHMARK(BM_ParseResponse)->Arg(1);
 
-rapidhttp::HttpHeaderDocument doc(rapidhttp::HttpHeaderDocument::Response);
+rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Response);
 
 void BM_PartialParseResponse(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
             size_t bytes = doc.PartailParse(c_http_response.c_str(), c_http_response.size() / 2);
-            bytes += doc.PartailParse(c_http_response.c_str() + c_http_response.size() / 2, c_http_response.size() - c_http_response.size() / 2);
-//            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
+            bytes += doc.PartailParse(c_http_response.c_str() + bytes, c_http_response.size() - bytes);
+//            printf("parse bytes: %d. error:%s done:%d\n", (int)bytes, doc.ParseError().message().c_str(), doc.ParseDone());
         }
     }
 }
