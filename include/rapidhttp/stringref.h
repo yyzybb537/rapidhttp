@@ -10,30 +10,70 @@ class StringRef
 {
 public:
     StringRef()
-        : pos_(0), len_(0), str_("")
+        : owner_(false), len_(0), str_("")
     {}
 
-    StringRef(const char* str, uint32_t pos, uint32_t len)
-        : pos_(pos), len_(len), str_(str)
-    {}
-    
     StringRef(const char* str, uint32_t len)
-        : pos_(0), len_(len), str_(str)
+        : owner_(false), len_(len), str_(str)
     {}
+
+    StringRef(StringRef const& other)
+    {
+        *this = other;
+    }
+
+    StringRef& operator=(StringRef const& other)
+    {
+        if (this == &other) return *this;
+
+        if (owner_)
+            free(str_);
+
+        if (other.owner_) {
+            str_ = (const char*)malloc(other.len_);
+            memcpy(str_, other.str_, other.len_);
+        } else
+            str_ = other.str_;
+        len_ = other.len_;
+        owner_ = other.owner_;
+        return *this;
+    }
+
+    StringRef(StringRef && other)
+    {
+        *this = std::move(other);
+    }
+
+    StringRef& operator=(StringRef && other)
+    {
+        if (this == &other) return *this;
+
+        if (owner_)
+            free(str_);
+
+        str_ = other.str_;
+        len_ = other.len_;
+        owner_ = other.owner_;
+
+        other.owner_ = false;
+        other.len_ = 0;
+        other.str_ = "";
+        return *this;
+    }
 
     explicit StringRef(std::string const& s)
-        : pos_(0), len_(s.size()), str_(s.c_str())
+        : owner_(false), len_(s.size()), str_(s.c_str())
     {}
 
-    void OnCopy(const char* origin, const char* dest)
+    ~StringRef()
     {
-        if (str_ == origin)
-            str_ = dest;
+        if (owner_)
+            free(str_);
     }
 
     const char* c_str() const
     {
-        return str_ + pos_;
+        return str_;
     }
 
     size_t size() const
@@ -43,24 +83,24 @@ public:
 
     std::string ToString() const
     {
-        return std::string(str_ + pos_, len_);
+        return std::string(str_, len_);
     }
 
     void SetString(std::string const& s)
     {
         str_ = s.c_str();
-        pos_ = 0;
         len_ = s.size();
+        owner_ = false;
     }
 
-    void Storage(std::string & s)
+    void SetOwner()
     {
-        if (!pos_ && s.c_str() == this->c_str() &&
-                s.length() == this->size())
-            return ;
-
-        s.assign(this->c_str(), this->size());
-        SetString(s);
+        if (!owner_ && len_) {
+            const char* buf = (const char*)malloc(len_);
+            memcpy(buf, str_, len_);
+            str_ = buf;
+            owner_ = true;
+        }
     }
 
     /// ------------- string equal-compare operator ---------------
@@ -118,8 +158,8 @@ public:
     /// -----------------------------------------------------
 
 private:
-    uint32_t pos_;
-    uint32_t len_;
+    bool owner_ : 1
+    uint32_t len_ : 31;
     const char* str_;
 };
 
