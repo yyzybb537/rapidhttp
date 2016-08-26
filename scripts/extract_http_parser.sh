@@ -1,12 +1,17 @@
 #!/bin/sh
 
-dest=$1/include/rapidhttp/http_parser.hpp
+dest=$1/include/rapidhttp/layer.hpp
 
 echo "#pragma once" > $dest
 cat $1/third_party/http-parser/http_parser.h >> $dest
 sed -i 's/extern\ "C"/namespace rapidhttp/g' $dest
+
+last_include=`grep "^\#include" $1/third_party/http-parser/http_parser.c -n | tail -1 | cut -d: -f1`
+tail_start=`expr $last_include + 1`
+head -$last_include $1/third_party/http-parser/http_parser.c >> $dest
+
 echo "namespace rapidhttp {" >> $dest
-cat $1/third_party/http-parser/http_parser.c | grep "^#include" -v >> $dest
+tail -n +$tail_start $1/third_party/http-parser/http_parser.c >> $dest
 echo "} //namespace rapidhttp" >> $dest
 
 # add inline key-word
@@ -33,4 +38,6 @@ sed -i 's/^static int$/inline &/g' $dest
 sed -i 's/^void$/inline &/g' $dest
 sed -i 's/^const char \*$/inline &/g' $dest
 
-echo "create $dest"
+sed -i 's/^\#include "http_parser.h"//g' $dest
+
+echo "create http-parser $dest"

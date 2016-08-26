@@ -7,7 +7,8 @@
 #include <rapidhttp/constants.h>
 #include <rapidhttp/stringref.h>
 #include <rapidhttp/error_code.h>
-#include <rapidhttp/http_parser.hpp>
+#include <rapidhttp/layer.hpp>
+#include "cmake_config.h"
 
 namespace rapidhttp {
 

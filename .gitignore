@@ -1,2 +1,4 @@
 build/*
-include/rapidhttp/http_parser.hpp
+include/rapidhttp/layer.hpp
+include/rapidhttp/cmake_config.h
+
