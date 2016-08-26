@@ -50,102 +50,102 @@ static std::string c_big_request =
 "Transfer-Encoding: chunked\r\n"
 "Cache-Control: max-age=0\r\n\r\nb\r\nhello world\r\n0\r\n\r\n";
 
-void BM_ParseRequest_0_field(benchmark::State& state)
+template <class DocType> void BM_ParseRequest_0_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
+            DocType doc(rapidhttp::Request);
             size_t bytes = doc.PartailParse(c_http_request_0);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
         }
     }
 }
-BENCHMARK(BM_ParseRequest_0_field)->Arg(1);
 
-void BM_ParseRequest_1_field(benchmark::State& state)
+template <class DocType> void BM_ParseRequest_1_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
+            DocType doc(rapidhttp::Request);
             size_t bytes = doc.PartailParse(c_http_request_1);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
         }
     }
 }
-BENCHMARK(BM_ParseRequest_1_field)->Arg(1);
 
-void BM_ParseRequest_2_field(benchmark::State& state)
+template <class DocType> void BM_ParseRequest_2_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
+            DocType doc(rapidhttp::Request);
             size_t bytes = doc.PartailParse(c_http_request_2);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
         }
     }
 }
-BENCHMARK(BM_ParseRequest_2_field)->Arg(1);
 
-void BM_ParseRequest_3_field(benchmark::State& state)
+template <class DocType> void BM_ParseRequest_3_field(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
+            DocType doc(rapidhttp::Request);
             size_t bytes = doc.PartailParse(c_http_request.c_str(), c_http_request.size());
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
         }
     }
 }
-BENCHMARK(BM_ParseRequest_3_field)->Arg(1);
 
-void BM_ParseRequest_big(benchmark::State& state)
+template <class DocType> void BM_ParseRequest_big(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
+            DocType doc(rapidhttp::Request);
             size_t bytes = doc.PartailParse(c_big_request);
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
         }
     }
 }
-BENCHMARK(BM_ParseRequest_big)->Arg(1)->Arg(10<<10);
 
-void BM_ParseResponse(benchmark::State& state)
+template <class DocType> void BM_ParseResponse(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
-            rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Response);
+            DocType doc(rapidhttp::Response);
             size_t bytes = doc.PartailParse(c_http_response.c_str(), c_http_response.size());
             (void)bytes;
 //            printf("parse bytes: %d. error:%s\n", (int)bytes, doc.ParseError().message().c_str());
         }
     }
 }
-BENCHMARK(BM_ParseResponse)->Arg(1);
 
-rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Response);
+template <typename DocType>
+DocType& GetDoc()
+{
+    static DocType doc(rapidhttp::Response);
+    return doc;
+}
 
-void BM_PartialParseResponse(benchmark::State& state)
+template <class DocType> void BM_PartialParseResponse(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
+            auto & doc = GetDoc<DocType>();
             size_t bytes = doc.PartailParse(c_http_response.c_str(), c_http_response.size() / 2);
             bytes += doc.PartailParse(c_http_response.c_str() + bytes, c_http_response.size() - bytes);
 //            printf("parse bytes: %d. error:%s done:%d\n", (int)bytes, doc.ParseError().message().c_str(), doc.ParseDone());
         }
     }
 }
-BENCHMARK(BM_PartialParseResponse)->Arg(1);
 
-void BM_Serialize(benchmark::State& state)
+template <class DocType> void BM_Serialize(benchmark::State& state)
 {
     while (state.KeepRunning()) {
         for (int x = 0; x < state.range(0); ++x) {
+            auto & doc = GetDoc<DocType>();
             char buf[128] = {};
             bool b = doc.Serialize(buf, sizeof(buf));
             (void)b;
@@ -155,7 +155,40 @@ void BM_Serialize(benchmark::State& state)
         }
     }
 }
-BENCHMARK(BM_Serialize)->Arg(1);
+
+template <class Src, class Dst> void BM_CopyTo(benchmark::State& state)
+{
+    while (state.KeepRunning()) {
+        for (int x = 0; x < state.range(0); ++x) {
+            auto & src = GetDoc<Src>();
+            auto & dst = GetDoc<Dst>();
+            src.CopyTo(dst);
+        }
+    }
+}
+
+BENCHMARK_TEMPLATE(BM_ParseRequest_0_field, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_1_field, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_2_field, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_3_field, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_big, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseResponse, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_PartialParseResponse, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_Serialize, rapidhttp::HttpDocument)->Arg(1);
+
+BENCHMARK_TEMPLATE(BM_ParseRequest_0_field, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_1_field, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_2_field, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_3_field, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseRequest_big, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_ParseResponse, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_PartialParseResponse, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_Serialize, rapidhttp::HttpDocumentRef)->Arg(1);
+
+BENCHMARK_TEMPLATE(BM_CopyTo, rapidhttp::HttpDocumentRef, rapidhttp::HttpDocument)->Arg(1);
+BENCHMARK_TEMPLATE(BM_CopyTo, rapidhttp::HttpDocumentRef, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_CopyTo, rapidhttp::HttpDocument, rapidhttp::HttpDocumentRef)->Arg(1);
+BENCHMARK_TEMPLATE(BM_CopyTo, rapidhttp::HttpDocument, rapidhttp::HttpDocument)->Arg(1);
 
 int main(int argc, char** argv) {
     ::benchmark::Initialize(&argc, argv);

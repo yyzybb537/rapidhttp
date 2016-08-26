@@ -6,7 +6,7 @@ using namespace std;
 void serialize()
 {
     // 1.定义一个Document对象
-    rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Response);
+    rapidhttp::HttpDocument doc(rapidhttp::Response);
 
     // 2.设置status/code
     doc.SetStatusCode(200);

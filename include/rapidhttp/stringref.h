@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string.h>
+#include <stdlib.h>
 #include <assert.h>
 
 namespace rapidhttp {
@@ -19,7 +20,14 @@ public:
 
     StringRef(StringRef const& other)
     {
-        *this = other;
+        if (other.owner_ && other.len_) {
+            char* buf = (char*)malloc(other.len_);
+            memcpy(buf, other.str_, other.len_);
+            str_ = buf;
+        } else
+            str_ = other.str_;
+        len_ = other.len_;
+        owner_ = other.owner_;
     }
 
     StringRef& operator=(StringRef const& other)
@@ -27,11 +35,12 @@ public:
         if (this == &other) return *this;
 
         if (owner_)
-            free(str_);
+            free((void*)str_);
 
-        if (other.owner_) {
-            str_ = (const char*)malloc(other.len_);
-            memcpy(str_, other.str_, other.len_);
+        if (other.owner_ && other.len_) {
+            char* buf = (char*)malloc(other.len_);
+            memcpy(buf, other.str_, other.len_);
+            str_ = buf;
         } else
             str_ = other.str_;
         len_ = other.len_;
@@ -41,7 +50,13 @@ public:
 
     StringRef(StringRef && other)
     {
-        *this = std::move(other);
+        str_ = other.str_;
+        len_ = other.len_;
+        owner_ = other.owner_;
+
+        other.owner_ = false;
+        other.len_ = 0;
+        other.str_ = "";
     }
 
     StringRef& operator=(StringRef && other)
@@ -49,7 +64,7 @@ public:
         if (this == &other) return *this;
 
         if (owner_)
-            free(str_);
+            free((void*)str_);
 
         str_ = other.str_;
         len_ = other.len_;
@@ -68,7 +83,7 @@ public:
     ~StringRef()
     {
         if (owner_)
-            free(str_);
+            free((void*)str_);
     }
 
     const char* c_str() const
@@ -81,13 +96,31 @@ public:
         return len_;
     }
 
-    std::string ToString() const
+    bool empty() const
+    {
+        return !size();
+    }
+
+    void clear()
+    {
+        if (owner_)
+            free((void*)str_);
+
+        str_ = "";
+        len_ = 0;
+        owner_ = false;
+    }
+
+    operator std::string() const
     {
         return std::string(str_, len_);
     }
 
     void SetString(std::string const& s)
     {
+        if (owner_)
+            free((void*)str_);
+
         str_ = s.c_str();
         len_ = s.size();
         owner_ = false;
@@ -96,11 +129,64 @@ public:
     void SetOwner()
     {
         if (!owner_ && len_) {
-            const char* buf = (const char*)malloc(len_);
+            char* buf = (char*)malloc(len_);
             memcpy(buf, str_, len_);
             str_ = buf;
             owner_ = true;
         }
+    }
+
+    void append(const char* first, size_t length)
+    {
+        append(first, first + length);
+    }
+
+    void append(const char* first, const char* last)
+    {
+        if (first >= last) return ;
+
+        if (!len_) {
+            str_ = first;
+            len_ = last - first;
+        } else if (!owner_ && str_ + len_ == first) {
+            len_ += last - first;
+        } else {
+            size_t new_len = len_ + (last - first);
+            char* buf = nullptr;
+            if (owner_) {
+                buf = (char*)realloc((void*)str_, new_len);
+            } else {
+                buf = (char*)malloc(new_len);
+                memcpy(buf, str_, len_);
+            }
+
+            memcpy(buf + len_, first, last - first);
+            str_ = buf;
+            len_ = new_len;
+            owner_ = true;
+        }
+    }
+
+    /// ------------- string assign operator ---------------
+public:
+    StringRef& operator=(const char* cstr)
+    {
+        clear();
+        str_ = cstr;
+        len_ = strlen(str_);
+        return *this;
+    }
+
+    StringRef& operator=(std::string const& s)
+    {
+        SetString(s);
+        return *this;
+    }
+
+    char const& operator[](int index) const
+    {
+        assert(index >= 0 && index < len_);
+        return str_[index];
     }
 
     /// ------------- string equal-compare operator ---------------
@@ -158,7 +244,7 @@ public:
     /// -----------------------------------------------------
 
 private:
-    bool owner_ : 1
+    bool owner_ : 1;
     uint32_t len_ : 31;
     const char* str_;
 };

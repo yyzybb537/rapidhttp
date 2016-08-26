@@ -5,7 +5,9 @@
 #include <stdio.h>
 
 namespace rapidhttp {
-    inline HttpDocument::HttpDocument(DocumentType type)
+
+    template <typename StringT>
+    inline THttpDocument<StringT>::THttpDocument(DocumentType type)
         : type_(type)
     {
         Reset();
@@ -19,16 +21,52 @@ namespace rapidhttp {
         settings_.on_body = sOnBody;
     }
 
+    template <typename StringT>
+    template <typename OStringT>
+    void THttpDocument<StringT>::CopyTo(THttpDocument<OStringT> & clone) const
+    {
+#define _COPY_TO(param) \
+        clone.param = this->param
+
+        _COPY_TO(type_);
+        _COPY_TO(parse_done_);
+        _COPY_TO(ec_);
+        _COPY_TO(parser_);
+        clone.parser_.data = &clone;
+        _COPY_TO(kv_state_);
+        _COPY_TO(callback_header_key_cache_);
+        _COPY_TO(callback_header_value_cache_);
+        _COPY_TO(major_);
+        _COPY_TO(minor_);
+        _COPY_TO(request_method_);
+        _COPY_TO(request_uri_);
+        _COPY_TO(response_status_code_);
+        _COPY_TO(response_status_);
+        _COPY_TO(body_);
+
+        clone.header_fields_.clear();
+        clone.header_fields_.reserve(this->header_fields_.size());
+        for (auto const& kv : this->header_fields_)
+        {
+            clone.header_fields_.emplace_back(std::pair<OStringT, OStringT>(
+                        (OStringT)kv.first, (OStringT)kv.second));
+        }
+
+#undef _COPY_TO
+    }
+
     /// ------------------- parse/generate ---------------------
     /// 流式解析
     // @buf_ref: 外部传入的缓冲区首地址, 再调用Storage前必须保证缓冲区有效且不变.
     // @len: 缓冲区长度
     // @returns：解析完成返回error_code=0, 解析一半返回error_code=1, 解析失败返回其他错误码.
-    inline size_t HttpDocument::PartailParse(std::string const& buf)
+    template <typename StringT>
+    inline size_t THttpDocument<StringT>::PartailParse(std::string const& buf)
     {
         return PartailParse(buf.c_str(), buf.size());
     }
-    inline size_t HttpDocument::PartailParse(const char* buf_ref, size_t len)
+    template <typename StringT>
+    inline size_t THttpDocument<StringT>::PartailParse(const char* buf_ref, size_t len)
     {
         if (ParseDone() || ParseError())
             Reset();
@@ -40,7 +78,8 @@ namespace rapidhttp {
         }
         return parsed;
     }
-    inline bool HttpDocument::PartailParseEof()
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::PartailParseEof()
     {
         if (ParseDone() || ParseError())
             return false;
@@ -48,41 +87,50 @@ namespace rapidhttp {
         PartailParse("", 0);
         return ParseDone();
     }
-    inline bool HttpDocument::ParseDone()
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::ParseDone()
     {
         return parse_done_;
     }
 
-    inline int HttpDocument::sOnHeadersComplete(http_parser *parser)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::sOnHeadersComplete(http_parser *parser)
     {
-        return ((HttpDocument*)parser->data)->OnHeadersComplete(parser);
+        return ((THttpDocument*)parser->data)->OnHeadersComplete(parser);
     }
-    inline int HttpDocument::sOnMessageComplete(http_parser *parser)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::sOnMessageComplete(http_parser *parser)
     {
-        return ((HttpDocument*)parser->data)->OnMessageComplete(parser);
+        return ((THttpDocument*)parser->data)->OnMessageComplete(parser);
     }
-    inline int HttpDocument::sOnUrl(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::sOnUrl(http_parser *parser, const char *at, size_t length)
     {
-        return ((HttpDocument*)parser->data)->OnUrl(parser, at, length);
+        return ((THttpDocument*)parser->data)->OnUrl(parser, at, length);
     }
-    inline int HttpDocument::sOnStatus(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::sOnStatus(http_parser *parser, const char *at, size_t length)
     {
-        return ((HttpDocument*)parser->data)->OnStatus(parser, at, length);
+        return ((THttpDocument*)parser->data)->OnStatus(parser, at, length);
     }
-    inline int HttpDocument::sOnHeaderField(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::sOnHeaderField(http_parser *parser, const char *at, size_t length)
     {
-        return ((HttpDocument*)parser->data)->OnHeaderField(parser, at, length);
+        return ((THttpDocument*)parser->data)->OnHeaderField(parser, at, length);
     }
-    inline int HttpDocument::sOnHeaderValue(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::sOnHeaderValue(http_parser *parser, const char *at, size_t length)
     {
-        return ((HttpDocument*)parser->data)->OnHeaderValue(parser, at, length);
+        return ((THttpDocument*)parser->data)->OnHeaderValue(parser, at, length);
     }
-    inline int HttpDocument::sOnBody(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::sOnBody(http_parser *parser, const char *at, size_t length)
     {
-        return ((HttpDocument*)parser->data)->OnBody(parser, at, length);
+        return ((THttpDocument*)parser->data)->OnBody(parser, at, length);
     }
 
-    inline int HttpDocument::OnHeadersComplete(http_parser *parser)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::OnHeadersComplete(http_parser *parser)
     {
         if (IsRequest())
             request_method_ = http_method_str((http_method)parser->method);
@@ -97,22 +145,26 @@ namespace rapidhttp {
         }
         return 0;
     }
-    inline int HttpDocument::OnMessageComplete(http_parser *parser)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::OnMessageComplete(http_parser *parser)
     {
         parse_done_ = true;
         return 0;
     }
-    inline int HttpDocument::OnUrl(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::OnUrl(http_parser *parser, const char *at, size_t length)
     {
         request_uri_.append(at, length);
         return 0;
     }
-    inline int HttpDocument::OnStatus(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::OnStatus(http_parser *parser, const char *at, size_t length)
     {
         response_status_.append(at, length);
         return 0;
     }
-    inline int HttpDocument::OnHeaderField(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::OnHeaderField(http_parser *parser, const char *at, size_t length)
     {
         if (kv_state_ == 1) {
             header_fields_.emplace_back(std::move(callback_header_key_cache_),
@@ -123,19 +175,22 @@ namespace rapidhttp {
         callback_header_key_cache_.append(at, length);
         return 0;
     }
-    inline int HttpDocument::OnHeaderValue(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::OnHeaderValue(http_parser *parser, const char *at, size_t length)
     {
         kv_state_ = 1;
         callback_header_value_cache_.append(at, length);
         return 0;
     }
-    inline int HttpDocument::OnBody(http_parser *parser, const char *at, size_t length)
+    template <typename StringT>
+    inline int THttpDocument<StringT>::OnBody(http_parser *parser, const char *at, size_t length)
     {
         body_.append(at, length);
         return 0;
     }
 
-    inline void HttpDocument::Reset()
+    template <typename StringT>
+    inline void THttpDocument<StringT>::Reset()
     {
         http_parser_init(&parser_, IsRequest() ? HTTP_REQUEST : HTTP_RESPONSE);
         parser_.data = this;
@@ -155,12 +210,14 @@ namespace rapidhttp {
     }
 
     // 返回解析错误码
-    inline std::error_code HttpDocument::ParseError()
+    template <typename StringT>
+    inline std::error_code THttpDocument<StringT>::ParseError()
     {
         return ec_;
     }
 
-    inline bool HttpDocument::IsInitialized() const
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::IsInitialized() const
     {
         if (IsRequest())
             return CheckMethod() && CheckUri() && CheckVersion();
@@ -168,7 +225,8 @@ namespace rapidhttp {
             return CheckVersion() && CheckStatusCode() && CheckStatus();
     }
 
-    inline size_t HttpDocument::ByteSize() const
+    template <typename StringT>
+    inline size_t THttpDocument<StringT>::ByteSize() const
     {
         if (!IsInitialized()) return 0;
 
@@ -190,7 +248,8 @@ namespace rapidhttp {
         return bytes;
     }
 
-    inline bool HttpDocument::Serialize(char *buf, size_t len)
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::Serialize(char *buf, size_t len)
     {
         size_t bytes = ByteSize();
         if (!bytes || len < bytes) return false;
@@ -248,7 +307,8 @@ namespace rapidhttp {
 #undef _WRITE_C_STR
 #undef _WRITE_STRING
     }
-    inline std::string HttpDocument::SerializeAsString()
+    template <typename StringT>
+    inline std::string THttpDocument<StringT>::SerializeAsString()
     {
         std::string s;
         size_t bytes = ByteSize();
@@ -257,95 +317,116 @@ namespace rapidhttp {
         if (!Serialize(&s[0], bytes)) return "";
         return s;
     }
-    inline bool HttpDocument::CheckMethod() const
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::CheckMethod() const
     {
         return !request_method_.empty();
     }
-    inline bool HttpDocument::CheckUri() const
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::CheckUri() const
     {
         return !request_uri_.empty() && request_uri_[0] == '/';
     }
-    inline bool HttpDocument::CheckStatusCode() const
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::CheckStatusCode() const
     {
         return response_status_code_ >= 100 && response_status_code_ < 1000;
     }
-    inline bool HttpDocument::CheckStatus() const
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::CheckStatus() const
     {
         return !response_status_.empty();
     }
-    inline bool HttpDocument::CheckVersion() const
+    template <typename StringT>
+    inline bool THttpDocument<StringT>::CheckVersion() const
     {
         return major_ >= 0 && major_ <= 9 && minor_ >= 0 && minor_ <= 9;
     }
     /// --------------------------------------------------------
 
     /// ------------------- fields get/set ---------------------
-    inline std::string const& HttpDocument::GetMethod()
+    template <typename StringT>
+    inline StringT const& THttpDocument<StringT>::GetMethod()
     {
         return request_method_;
     }
     
-    inline void HttpDocument::SetMethod(const char* m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetMethod(const char* m)
     {
         request_method_ = m;
     }
-    inline void HttpDocument::SetMethod(std::string const& m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetMethod(std::string const& m)
     {
         request_method_ = m;
     }
-    inline std::string const& HttpDocument::GetUri()
+    template <typename StringT>
+    inline StringT const& THttpDocument<StringT>::GetUri()
     {
         return request_uri_;
     }
-    inline void HttpDocument::SetUri(const char* m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetUri(const char* m)
     {
         request_uri_ = m;
     }
-    inline void HttpDocument::SetUri(std::string const& m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetUri(std::string const& m)
     {
         request_uri_ = m;
     }
-    inline std::string const& HttpDocument::GetStatus()
+    template <typename StringT>
+    inline StringT const& THttpDocument<StringT>::GetStatus()
     {
         return response_status_;
     }
-    inline void HttpDocument::SetStatus(const char* m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetStatus(const char* m)
     {
         response_status_ = m;
     }
-    inline void HttpDocument::SetStatus(std::string const& m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetStatus(std::string const& m)
     {
         response_status_ = m;
     }
-    inline int HttpDocument::GetStatusCode()
+    template <typename StringT>
+    inline int THttpDocument<StringT>::GetStatusCode()
     {
         return response_status_code_;
     }
-    inline void HttpDocument::SetStatusCode(int code)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetStatusCode(int code)
     {
         response_status_code_ = code;
     }
-    inline int HttpDocument::GetMajor()
+    template <typename StringT>
+    inline int THttpDocument<StringT>::GetMajor()
     {
         return major_;
     }
-    inline void HttpDocument::SetMajor(int v)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetMajor(int v)
     {
         major_ = v;
     }
-    inline int HttpDocument::GetMinor()
+    template <typename StringT>
+    inline int THttpDocument<StringT>::GetMinor()
     {
         return minor_;
     }
-    inline void HttpDocument::SetMinor(int v)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetMinor(int v)
     {
         minor_ = v;
     }
-    inline std::string const& HttpDocument::GetField(std::string const& k)
+    template <typename StringT>
+    inline StringT const& THttpDocument<StringT>::GetField(std::string const& k)
     {
-        static const std::string empty_string = "";
+        static const string_t empty_string;
         auto it = std::find_if(header_fields_.begin(), header_fields_.end(),
-                [&](std::pair<std::string, std::string> const& kv)
+                [&](std::pair<string_t, string_t> const& kv)
                 {
                     return kv.first == k;
                 });
@@ -354,10 +435,11 @@ namespace rapidhttp {
         else
             return it->second;
     }
-    inline void HttpDocument::SetField(std::string const& k, const char* m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetField(std::string const& k, const char* m)
     {
         auto it = std::find_if(header_fields_.begin(), header_fields_.end(),
-                [&](std::pair<std::string, std::string> const& kv)
+                [&](std::pair<string_t, string_t> const& kv)
                 {
                     return kv.first == k;
                 });
@@ -366,22 +448,29 @@ namespace rapidhttp {
         else
             it->second = m;
     }
-    inline void HttpDocument::SetField(std::string const& k, std::string const& m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetField(std::string const& k, std::string const& m)
     {
         return SetField(k, m.c_str());
     }
-    inline std::string const& HttpDocument::GetBody()
+    template <typename StringT>
+    inline StringT const& THttpDocument<StringT>::GetBody()
     {
         return body_;
     }
-    inline void HttpDocument::SetBody(const char* m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetBody(const char* m)
     {
         body_ = m;
     }
-    inline void HttpDocument::SetBody(std::string const& m)
+    template <typename StringT>
+    inline void THttpDocument<StringT>::SetBody(std::string const& m)
     {
         body_ = m;
     }
     /// --------------------------------------------------------
+
+    typedef THttpDocument<std::string> HttpDocument;
+    typedef THttpDocument<StringRef> HttpDocumentRef;
 
 } //namespace rapidhttp 

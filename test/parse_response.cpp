@@ -44,9 +44,11 @@ static std::string c_http_response_err_3 =
 "Content-Length: 0\r\n"
 "User-Agent: gtest.proxy\r\n";
 
-TEST(parse, response)
+
+template <typename DocType>
+void test_parse_response()
 {
-    rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Response);
+    DocType doc(rapidhttp::Response);
     size_t bytes = doc.PartailParse(c_http_response);
     EXPECT_EQ(bytes, c_http_response.size());
     EXPECT_TRUE(!doc.ParseError());
@@ -60,6 +62,7 @@ TEST(parse, response)
     EXPECT_EQ(doc.GetField("Host"), "domain.com");
     EXPECT_EQ(doc.GetField("Connection"), "Keep-Alive");
     EXPECT_EQ(doc.GetField("User-Agent"), "");
+    EXPECT_EQ(doc.GetBody(), "xyz");
 
     for (int i = 0; i < 10; ++i) {
         size_t bytes = doc.PartailParse(c_http_response.c_str(), c_http_response.size());
@@ -144,4 +147,52 @@ TEST(parse, response)
     bytes = doc.ByteSize();
     EXPECT_EQ(bytes, c_http_response.size());
     EXPECT_EQ(c_http_response, buf);
+}
+
+void copyto_response()
+{
+    std::string s = c_http_response;
+
+    rapidhttp::HttpDocumentRef doc(rapidhttp::Response);
+    size_t bytes = doc.PartailParse(s);
+    EXPECT_EQ(bytes, s.size());
+    EXPECT_TRUE(!doc.ParseError());
+
+#define _CHECK_DOC(doc) \
+    EXPECT_EQ(doc.GetStatus(), "OK"); \
+    EXPECT_EQ(doc.GetStatusCode(), 200); \
+    EXPECT_EQ(doc.GetMajor(), 1); \
+    EXPECT_EQ(doc.GetMinor(), 1); \
+    EXPECT_EQ(doc.GetField("Accept"), "XAccept"); \
+    EXPECT_EQ(doc.GetField("Host"), "domain.com"); \
+    EXPECT_EQ(doc.GetField("Connection"), "Keep-Alive"); \
+    EXPECT_EQ(doc.GetField("User-Agent"), ""); \
+    EXPECT_EQ(doc.GetBody(), "xyz")
+
+    _CHECK_DOC(doc);
+
+    rapidhttp::HttpDocumentRef doc2(rapidhttp::Response);
+    doc.CopyTo(doc2);
+    _CHECK_DOC(doc2);
+
+    rapidhttp::HttpDocument doc3(rapidhttp::Response);
+    doc2.CopyTo(doc3);
+    _CHECK_DOC(doc3);
+
+    rapidhttp::HttpDocument doc4(rapidhttp::Response);
+    doc2.CopyTo(doc4);
+    _CHECK_DOC(doc4);
+    doc3.CopyTo(doc4);
+    _CHECK_DOC(doc4);
+
+    s = "xx";
+    _CHECK_DOC(doc3);
+    _CHECK_DOC(doc4);
+}
+
+TEST(parse, response)
+{
+    test_parse_response<rapidhttp::HttpDocument>();
+    test_parse_response<rapidhttp::HttpDocumentRef>();
+    copyto_response();
 }

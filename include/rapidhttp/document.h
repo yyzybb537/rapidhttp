@@ -11,21 +11,27 @@
 
 namespace rapidhttp {
 
+enum DocumentType
+{
+    Request,
+    Response,
+};
+
 // Http Header document class.
-class HttpDocument
+template <typename StringT>
+class THttpDocument
 {
 public:
-    enum DocumentType
-    {
-        Request,
-        Response,
-    };
+    typedef StringT string_t;
 
-    explicit HttpDocument(DocumentType type);
-    HttpDocument(HttpDocument const& other) = delete;
-    HttpDocument(HttpDocument && other) = delete;
-    HttpDocument& operator=(HttpDocument const& other) = delete;
-    HttpDocument& operator=(HttpDocument && other) = delete;
+    explicit THttpDocument(DocumentType type);
+    THttpDocument(THttpDocument const& other) = delete;
+    THttpDocument(THttpDocument && other) = delete;
+    THttpDocument& operator=(THttpDocument const& other) = delete;
+    THttpDocument& operator=(THttpDocument && other) = delete;
+
+    template <typename OStringT>
+    void CopyTo(THttpDocument<OStringT> & clone) const;
 
     /// ------------------- parse/generate ---------------------
     /// 流式解析
@@ -62,15 +68,15 @@ public:
     /// --------------------------------------------------------
 
     /// ------------------- fields get/set ---------------------
-    inline std::string const& GetMethod();
+    inline string_t const& GetMethod();
     inline void SetMethod(const char* m);
     inline void SetMethod(std::string const& m);
 
-    inline std::string const& GetUri();
+    inline string_t const& GetUri();
     inline void SetUri(const char* m);
     inline void SetUri(std::string const& m);
 
-    inline std::string const& GetStatus();
+    inline string_t const& GetStatus();
     inline void SetStatus(const char* m);
     inline void SetStatus(std::string const& m);
 
@@ -83,11 +89,11 @@ public:
     inline int GetMinor();
     inline void SetMinor(int v);
 
-    inline std::string const& GetField(std::string const& k);
+    inline string_t const& GetField(std::string const& k);
     inline void SetField(std::string const& k, const char* m);
     inline void SetField(std::string const& k, std::string const& m);
 
-    inline std::string const& GetBody();
+    inline string_t const& GetBody();
     inline void SetBody(const char* m);
     inline void SetBody(std::string const& m);
     /// --------------------------------------------------------
@@ -129,22 +135,25 @@ private:
     struct http_parser parser_;
     struct http_parser_settings settings_;
     int kv_state_ = 0;
-    std::string callback_header_key_cache_;
-    std::string callback_header_value_cache_;
+    string_t callback_header_key_cache_;
+    string_t callback_header_value_cache_;
 
     // 默认版本号: HTTP/1.1
     uint32_t major_ = 1;
     uint32_t minor_ = 1;
 
-    std::string request_method_;
-    std::string request_uri_;
+    string_t request_method_;
+    string_t request_uri_;
 
     uint32_t response_status_code_ = 0;
-    std::string response_status_;
+    string_t response_status_;
 
-    std::vector<std::pair<std::string, std::string>> header_fields_;
+    std::vector<std::pair<string_t, string_t>> header_fields_;
 
-    std::string body_;
+    string_t body_;
+
+    template <typename T>
+    friend class THttpDocument;
 };
 
 } //namespace rapidhttp 

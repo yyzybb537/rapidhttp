@@ -43,9 +43,11 @@ static std::string c_http_request_err_3 =
 "Host: domain.com\r\n"
 "User-Agent: gtest.proxy\r\n";
 
-TEST(parse, request)
+
+template <typename DocType>
+void test_parse_request()
 {
-    rapidhttp::HttpDocument doc(rapidhttp::HttpDocument::Request);
+    DocType doc(rapidhttp::Request);
     size_t bytes = doc.PartailParse(c_http_request);
     EXPECT_EQ(bytes, c_http_request.size());
     EXPECT_TRUE(!doc.ParseError());
@@ -149,3 +151,50 @@ TEST(parse, request)
     EXPECT_EQ(c_http_request_2, buf);
 }
 
+void copyto_request()
+{
+    std::string s = c_http_request_2;
+
+    rapidhttp::HttpDocumentRef doc(rapidhttp::Request);
+    size_t bytes = doc.PartailParse(s);
+    EXPECT_EQ(bytes, s.size());
+    EXPECT_TRUE(!doc.ParseError());
+
+#define _CHECK_DOC(doc) \
+    EXPECT_EQ(doc.GetMethod(), "POST"); \
+    EXPECT_EQ(doc.GetUri(), "/uri/abc"); \
+    EXPECT_EQ(doc.GetMajor(), 1); \
+    EXPECT_EQ(doc.GetMinor(), 1); \
+    EXPECT_EQ(doc.GetField("Accept"), "XAccept"); \
+    EXPECT_EQ(doc.GetField("Host"), "domain.com"); \
+    EXPECT_EQ(doc.GetField("Connection"), ""); \
+    EXPECT_EQ(doc.GetField("User-Agent"), "gtest.proxy"); \
+    EXPECT_EQ(doc.GetBody(), "abc")
+
+    _CHECK_DOC(doc);
+
+    rapidhttp::HttpDocumentRef doc2(rapidhttp::Request);
+    doc.CopyTo(doc2);
+    _CHECK_DOC(doc2);
+
+    rapidhttp::HttpDocument doc3(rapidhttp::Request);
+    doc2.CopyTo(doc3);
+    _CHECK_DOC(doc3);
+
+    rapidhttp::HttpDocument doc4(rapidhttp::Request);
+    doc2.CopyTo(doc4);
+    _CHECK_DOC(doc4);
+    doc3.CopyTo(doc4);
+    _CHECK_DOC(doc4);
+
+    s = "xx";
+    _CHECK_DOC(doc3);
+    _CHECK_DOC(doc4);
+}
+
+TEST(parse, request)
+{
+    test_parse_request<rapidhttp::HttpDocument>();
+    test_parse_request<rapidhttp::HttpDocumentRef>();
+    copyto_request();
+}
