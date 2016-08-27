@@ -11,6 +11,8 @@ namespace rapidhttp {
         : type_(type)
     {
         Reset();
+#if USE_PICO
+#else
         memset(&settings_, 0, sizeof(settings_));
         settings_.on_headers_complete = sOnHeadersComplete;
         settings_.on_message_complete = sOnMessageComplete;
@@ -19,6 +21,7 @@ namespace rapidhttp {
         settings_.on_header_field = sOnHeaderField;
         settings_.on_header_value = sOnHeaderValue;
         settings_.on_body = sOnBody;
+#endif
     }
 
     template <typename StringT>
@@ -65,6 +68,9 @@ namespace rapidhttp {
     {
         return PartailParse(buf.c_str(), buf.size());
     }
+
+#if USE_PICO
+#else
     template <typename StringT>
     inline size_t THttpDocument<StringT>::PartailParse(const char* buf_ref, size_t len)
     {
@@ -188,12 +194,17 @@ namespace rapidhttp {
         body_.append(at, length);
         return 0;
     }
+#endif
 
     template <typename StringT>
     inline void THttpDocument<StringT>::Reset()
     {
+#if USE_PICO
+#else
         http_parser_init(&parser_, IsRequest() ? HTTP_REQUEST : HTTP_RESPONSE);
         parser_.data = this;
+#endif
+
         parse_done_ = false;
         ec_ = std::error_code();
         kv_state_ = 0;

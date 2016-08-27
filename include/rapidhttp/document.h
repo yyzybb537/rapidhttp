@@ -109,6 +109,8 @@ private:
     inline bool CheckStatus() const;
     inline bool CheckVersion() const;
 
+#if USE_PICO
+#else
     // http-parser
 private:
     static inline int sOnHeadersComplete(http_parser *parser);
@@ -126,6 +128,7 @@ private:
     inline int OnHeaderField(http_parser *parser, const char *at, size_t length);
     inline int OnHeaderValue(http_parser *parser, const char *at, size_t length);
     inline int OnBody(http_parser *parser, const char *at, size_t length);
+#endif
 
 private:
     DocumentType type_;     // 类型
@@ -133,8 +136,12 @@ private:
     bool parse_done_ = false;
     std::error_code ec_;    // 解析错状态
 
+#if USE_PICO
+#else
     struct http_parser parser_;
     struct http_parser_settings settings_;
+#endif
+
     int kv_state_ = 0;
     string_t callback_header_key_cache_;
     string_t callback_header_value_cache_;
