@@ -26,10 +26,8 @@ inline size_t UIntegerByteSize(uint32_t i)
         return 8;
     else if (i < 1000000000)
         return 9;
-    else if (i < 10000000000)
-        return 10;
     else
-        return 11;
+        return 10;
 }
 
 inline const char* SkipSpaces(const char* pos, const char* last)
