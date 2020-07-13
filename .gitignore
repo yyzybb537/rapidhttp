@@ -1,4 +1,2 @@
 build/*
-include/rapidhttp/layer.hpp
-include/rapidhttp/cmake_config.h
 
